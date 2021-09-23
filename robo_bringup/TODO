@@ -1,0 +1,4 @@
+roslaunch files:
+1. open cameras
+2. open Lidar
+3. Start all nodes

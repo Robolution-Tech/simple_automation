@@ -1,0 +1,7 @@
+{
+    "cmd_vel_pub_topic": "/cmd_vel_control",
+    "cmd_vel_sub_topic": "/cmd_vel",
+    "user_command_topic": "/user_command",
+    "processing_topic": "/processed_navigation_pose",
+    "safety_topic": "/safety_status"
+}

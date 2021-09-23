@@ -24,6 +24,7 @@ namespace robo_decision
       user_command_topic = config_reader["user_command_topic"];
       processing_topic = config_reader["processing_topic"];
       safety_topic = config_reader["safety_topic"];
+      excavation_mode = bool(config_reader["excavation_mode"]);
     }
   };
   RoboDecision::~RoboDecision() = default;
@@ -62,10 +63,16 @@ namespace robo_decision
         if (safe_to_proceed && system_inited)
         {
           cmd_vel_pub.publish(received_cmd_vel);
-          if (found_target || ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+          if (found_target ||
+              ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
           {
+            ROS_INFO("Goal achieved ...");
             ac.cancelAllGoals();
-            system_state = State::EXCAVATION;
+            if (excavation_mode)
+            {
+              ROS_INFO("Now entering into excavation mode");
+              system_state = State::EXCAVATION;
+            }
           }
         }
         break;
@@ -74,7 +81,9 @@ namespace robo_decision
         /* system_stop = true; */
         if (system_inited)
         {
+          ROS_INFO("Abortiong task ...");
           ac.cancelAllGoals();
+          ROS_INFO("Stop the vehicle ...");
           cmd_vel_pub.publish(stop_vehicle_twist);
         }
         break;
@@ -116,6 +125,7 @@ namespace robo_decision
     switch (received_command)
     {
     case 1: // Task start
+      ROS_INFO("Running command received ...");
       if (system_inited)
       {
         system_state = State::RUNNING;
@@ -126,16 +136,18 @@ namespace robo_decision
       break;
 
     case 2: // Return home
+      ROS_INFO("Returning home comand received ...");
       if (system_inited)
       {
         system_state = State::RETURNNING;
         ac.cancelAllGoals();
-        ROS_INFO("Now returning home...");
+        ROS_INFO("Now updaing navigation goal to home ...");
         ac.sendGoal(return_to_home_goal);
       }
       break;
 
     case 3: // Abort mission / (stop)
+      ROS_INFO("Abort command received ...");
       system_state = State::ABORT;
       break;
 

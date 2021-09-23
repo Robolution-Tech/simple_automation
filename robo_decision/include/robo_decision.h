@@ -6,13 +6,13 @@
 #include <actionlib_msgs/GoalStatus.h>
 #include <boost/filesystem.hpp>
 #include <fstream>
-#include <sstream>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <move_base_msgs/MoveBaseGoal.h>
 #include <mutex>
 #include <ros/ros.h>
+#include <sstream>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int16.h>
 #include <std_msgs/Int8.h>
@@ -77,6 +77,8 @@ namespace robo_decision
     geometry_msgs::Twist received_cmd_vel;
     bool safe_to_proceed = true; // TODO: check if safe to proceed?
     bool found_target = false;
+    bool excavation_mode = false;
+
     // Member functions
     void Init_return_to_home(const geometry_msgs::PoseStamped &home_location);
     void Init_stop_vehicle_twist();

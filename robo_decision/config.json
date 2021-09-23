@@ -3,5 +3,6 @@
     "cmd_vel_sub_topic": "/cmd_vel",
     "user_command_topic": "/user_command",
     "processing_topic": "/processed_navigation_pose",
-    "safety_topic": "/safety_status"
+    "safety_topic": "/safety_status",
+    "excavation_node": 1
 }

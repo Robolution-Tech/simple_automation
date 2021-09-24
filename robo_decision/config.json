@@ -4,5 +4,9 @@
     "user_command_topic": "/user_command",
     "processing_topic": "/processed_navigation_pose",
     "safety_topic": "/safety_status",
-    "excavation_node": 1
+    "robo_decison_system_state_topic": "/robo_decision_system_state",
+    "hard_code_topic": "/hard_code_mode",
+    "hard_code_cmd_vel_topic": "/hard_code_cmd_vel",
+    "excavation_node": 1,
+    "resume_task_after_stop": 1
 }

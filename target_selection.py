@@ -1,14 +1,23 @@
 
 import json, cv2, time, os, math
 import rospy
+from std_msgs.msg import Int8
+from sensor_msgs.msg import NavSatFix
 import numpy as np
 import requests, shutil
 from os import listdir
 from os.path import isfile, join
 
+print('CV version: {}'.format(cv2. __version__))
 
 class targetSelection():
     def __init__(self):
+
+        rospy.init_node('node_user_ui')
+
+        self.user_pub = rospy.Publisher('user_command', Int8, queue_size=1)
+        self.target_gps_pub = rospy.Publisher('target_gps', NavSatFix, queue_size=1)
+
         self.latlon = [53.312726, -113.580793]
 
         self.map_tiles_folder = 'maps/'
@@ -53,9 +62,9 @@ class targetSelection():
 
         self.select_roi()
 
-        
-
         self.select_target_location()
+
+        self.select_action()
 
 
 
@@ -75,6 +84,27 @@ class targetSelection():
         self.complete_image_with_text = np.vstack( ( map_part,  self.textbg  ) )
 
 
+
+
+    # =============================================================
+    # mouse event handle, for ROI selection 
+    # =============================================================
+    def click_and_crop( self, event, x, y, flags, param):
+        # if the left mouse button was clicked, record the starting (x, y) coordinates
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # cv2.circle(self.complete_image_with_text, (x,y), 5, (0,255,0), -1)
+            if 0 <= x <= self.visual_img_width and 0 <= y <= self.visual_img_height:
+                self.roi_selection.append( [x,y] )
+
+            if self.button_roi_restart_boundary[0][0] < x < self.button_roi_restart_boundary[1][0] and self.button_roi_restart_boundary[0][1] < y < self.button_roi_restart_boundary[1][1] :
+                self.roi_restart_button_pressed = True 
+                print('Restart pressed ')
+            if len(self.roi_selection) == 2:
+                if self.button_roi_set_boundary[0][0] < x < self.button_roi_set_boundary[1][0] and self.button_roi_set_boundary[0][1] < y < self.button_roi_set_boundary[1][1] :
+                    self.roi_set_button_pressed = True 
+                    print('Set pressed ')
+
+
     # =============================================================
     # one of main functions, for ROI selection 
     # =============================================================
@@ -82,42 +112,62 @@ class targetSelection():
 
         self.roi_selection = []
 
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        button_width  = 130
+        button_height = 90
+        button_top_offset = 60
+
+        roi_restart_left = 630
+        roi_set_left  =480
+
+
+        self.button_roi_restart_boundary = [(roi_restart_left, self.visual_img_height+button_top_offset),(roi_restart_left+button_width, self.visual_img_height+button_top_offset+button_height)]
+        self.button_roi_set_boundary     = [(roi_set_left, self.visual_img_height+button_top_offset)    ,(roi_set_left+button_width , self.visual_img_height+button_top_offset+button_height)]
+        
+        self.roi_restart_button_pressed = False
+        self.roi_set_button_pressed = False
+
         self.complete_image_with_text_backup = self.complete_image_with_text.copy()
         cv2.namedWindow("map")
         cv2.setMouseCallback("map", self.click_and_crop)
 
-        while True:
+        # while True:
+        while self.roi_set_button_pressed == False:
             # display the image and wait for a keypress
             cv2.imshow("map", self.complete_image_with_text)
             key = cv2.waitKey(1) & 0xFF
 
-            # if the 'r' key is pressed, reset the cropping region
-            if key == ord("r"):
+            if self.roi_restart_button_pressed == True:
                 # self.complete_image_with_text = self.complete_image_with_text_backup.copy()
-                self.textbg_init()
+                # self.textbg_init()
+                self.selection_img_init()
                 self.complete_image_with_text = np.vstack( ( self.complete_image_backup,  self.textbg  ) )
-                self.roi_selection = []
+                cv2.rectangle( self.complete_image_with_text, self.button_roi_restart_boundary[0], self.button_roi_restart_boundary[1], (0,255,0), 5 )
+                cv2.rectangle( self.complete_image_with_text, self.button_roi_restart_boundary[0], self.button_roi_restart_boundary[1], (100,255,100), -1 )
+                UIstring = 'Restart'
+                cv2.putText(self.complete_image_with_text, UIstring, (self.button_roi_restart_boundary[0][0]+10, self.button_roi_restart_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
 
-            # if the key is pressed, break from the loop
-            elif key == 32:  # 32 means spacebar 
-                if len(self.roi_selection) == 2:
-                    break
+                self.roi_selection = []
+                self.roi_restart_button_pressed = False
+                self.roi_set_button_pressed = False
 
             else:
                 self.selection_img_init()
 
-                if len(self.roi_selection) < 2:
-                    font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.rectangle( self.complete_image_with_text, self.button_roi_restart_boundary[0], self.button_roi_restart_boundary[1], (0,255,0), 5 )
+                cv2.rectangle( self.complete_image_with_text, self.button_roi_restart_boundary[0], self.button_roi_restart_boundary[1], (100,255,100), -1 )
+                UIstring = 'Restart'
+                cv2.putText(self.complete_image_with_text, UIstring, (self.button_roi_restart_boundary[0][0]+10, self.button_roi_restart_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
 
+                if len(self.roi_selection) < 2:
+                    
                     UIstring = 'Select the region of the site.'
                     cv2.putText(self.complete_image_with_text, UIstring, (20,840), font, 1, (255, 100, 60), 2)
 
                     UIstring = 'Please select 2 points, now have {}'.format(len(self.roi_selection))
                     cv2.putText(self.complete_image_with_text, UIstring, (20,880), font, 1, (255, 0, 0), 2)
 
-                    UIstring = 'Press R to restart.'
-                    cv2.putText(self.complete_image_with_text, UIstring, (20,920), font, 1, (255, 0, 0), 2)
-                    
                     if len(self.roi_selection) > 0:
                         for spasdsadpks in self.roi_selection:
                             cv2.circle(self.complete_image_with_text, ( spasdsadpks[0] , spasdsadpks[1] ), 5, (0,255,0), -1)
@@ -126,11 +176,11 @@ class targetSelection():
                     UIstring = 'Please select 2 points only, now have {}.'.format(len(self.roi_selection))
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     cv2.putText(self.complete_image_with_text, UIstring, (20,840), font, 1, (255, 0, 0), 2)
-                    UIstring = 'Press R to restart.'
+                    UIstring = 'Press Restart.'
                     cv2.putText(self.complete_image_with_text, UIstring, (20,880), font, 1, (25, 20, 255), 2)
 
                 if len(self.roi_selection) == 2:
-                    UIstring = 'Good -> Press Spacebar    '
+                    UIstring = 'Good -> Press Set'
                     roi_up = min(self.roi_selection[0][1], self.roi_selection[1][1])
                     roi_bt = max(self.roi_selection[0][1], self.roi_selection[1][1])
                     roi_lf = min(self.roi_selection[0][0], self.roi_selection[1][0])
@@ -138,8 +188,14 @@ class targetSelection():
                     cv2.rectangle( self.complete_image_with_text, (roi_rt, roi_up), (roi_lf, roi_bt), (0,255,0), 3 )
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     cv2.putText(self.complete_image_with_text, UIstring, (20,840), font, 1, (255, 0, 0), 2)
-                    UIstring = 'Restart -> Press R '
+                    UIstring = 'Reselect-> Press Restart'
                     cv2.putText(self.complete_image_with_text, UIstring, (20,880), font, 1, (255, 0, 0), 2)
+
+                    cv2.rectangle( self.complete_image_with_text, self.button_roi_set_boundary[0], self.button_roi_set_boundary[1], (0,255,0), 5 )
+                    cv2.rectangle( self.complete_image_with_text, self.button_roi_set_boundary[0], self.button_roi_set_boundary[1], (100,255,100), -1 )
+                    UIstring = 'Set'
+                    cv2.putText(self.complete_image_with_text, UIstring, (self.button_roi_set_boundary[0][0]+10, self.button_roi_set_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
        
 
         self.complete_image = self.complete_image_backup.copy()
@@ -158,7 +214,6 @@ class targetSelection():
         self.current_lon_range = [ new_latlon_topleft[1], new_latlon_botright[1]]
         self.current_lat_range = [ new_latlon_topleft[0], new_latlon_botright[0]]
 
-
         ### update the image for visual, for the next step 
         roi_up_in_original = int( float(roi_up)/self.visual_img_height * (self.tile_num * self.image_resolution) )
         roi_bt_in_original = int( float(roi_bt)/self.visual_img_height * (self.tile_num * self.image_resolution) )
@@ -172,12 +227,7 @@ class targetSelection():
         height = int(self.visual_img_width / float(neww) * newh)
         self.complete_image = cv2.resize( roi_map, (self.visual_img_width, height ) )
 
-        # self.visual_img_width = roi_rt - roi_lf
         self.visual_img_height = height
-
-
-        # cv2.imshow('map', self.complete_image)
-        # cv2.waitKey(0)
 
         cv2.destroyWindow("map") 
 
@@ -188,78 +238,219 @@ class targetSelection():
     def select_target_location(self):
         self.target_selection = []
 
+        self.target_number_limit = 1
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        button_width  = 130
+        button_height = 90
+        button_top_offset = 60
+
+        target_restart_left = 630
+        target_set_left  =480
+
+
+        self.button_target_restart_boundary = [(target_restart_left, self.visual_img_height+button_top_offset),(target_restart_left+button_width, self.visual_img_height+button_top_offset+button_height)]
+        self.button_target_set_boundary     = [(target_set_left, self.visual_img_height+button_top_offset)    ,(target_set_left+button_width , self.visual_img_height+button_top_offset+button_height)]
+        
+        self.target_restart_button_pressed = False
+        self.target_set_button_pressed = False
+
         self.complete_image_backup = self.complete_image.copy()
         self.complete_image_with_text_backup = self.complete_image_with_text.copy()
+
+        self.targetlatlon = NavSatFix()
         
         cv2.namedWindow("Task Assign")
         cv2.setMouseCallback("Task Assign", self.click_for_target)
 
-        while True:
+        # while True:
+        while self.target_set_button_pressed == False:
             # display the image and wait for a keypress
 
             font = cv2.FONT_HERSHEY_SIMPLEX
 
-            UIstring = 'Select target locations in sequence.'
+            # UIstring = 'Select target locations in sequence.'
+            UIstring = 'Select target location. Have {}, need {} more'.format( len(self.target_selection) , self.target_number_limit-len(self.target_selection))
             cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+40 ), font, 1, (255, 100, 60), 2)
 
             cv2.imshow("Task Assign", self.complete_image_with_text)
             key = cv2.waitKey(1) & 0xFF
 
-            # if the 'r' key is pressed, reset the cropping region
-            if key == ord("r"):
+            if self.target_restart_button_pressed == True:
                 # self.complete_image_with_text = self.complete_image_with_text_backup.copy()
-                self.textbg_init()
+                # self.textbg_init()
+                self.selection_img_init()
                 self.complete_image_with_text = np.vstack( ( self.complete_image_backup,  self.textbg  ) )
-                self.target_selection = []
+                cv2.rectangle( self.complete_image_with_text, self.button_target_restart_boundary[0], self.button_target_restart_boundary[1], (0,255,0), 5 )
+                cv2.rectangle( self.complete_image_with_text, self.button_target_restart_boundary[0], self.button_target_restart_boundary[1], (100,255,100), -1 )
+                UIstring = 'Restart'
+                cv2.putText(self.complete_image_with_text, UIstring, (self.button_target_restart_boundary[0][0]+10, self.button_target_restart_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
 
-            # if the key is pressed, break from the loop
-            elif key == 32:  # 32 means spacebar 
-                # if len(self.roi_selection) == 2:
-                break
+                self.target_selection = []
+                self.target_restart_button_pressed = False
+                self.target_set_button_pressed = False
 
             else:
                 self.selection_img_init()
-                if len(self.roi_selection) > 0:
+
+                if len(self.target_selection) == self.target_number_limit:
+
+                    cv2.rectangle( self.complete_image_with_text, self.button_target_set_boundary[0], self.button_target_set_boundary[1], (0,255,0), 5 )
+                    cv2.rectangle( self.complete_image_with_text, self.button_target_set_boundary[0], self.button_target_set_boundary[1], (100,255,100), -1 )
+                    UIstring = 'Set'
+                    cv2.putText(self.complete_image_with_text, UIstring, (self.button_target_set_boundary[0][0]+10, self.button_target_set_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
+
+                cv2.rectangle( self.complete_image_with_text, self.button_target_restart_boundary[0], self.button_target_restart_boundary[1], (0,255,0), 5 )
+                cv2.rectangle( self.complete_image_with_text, self.button_target_restart_boundary[0], self.button_target_restart_boundary[1], (100,255,100), -1 )
+                UIstring = 'Restart'
+                cv2.putText(self.complete_image_with_text, UIstring, (self.button_target_restart_boundary[0][0]+10, self.button_target_restart_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
+
+                if len(self.target_selection) > 0:
                         for spasdsadpks in self.target_selection:
                             cv2.circle(self.complete_image_with_text, ( spasdsadpks[0] , spasdsadpks[1] ), 5, (0,255,0), -1)
 
-                            font = cv2.FONT_HERSHEY_SIMPLEX
+                UIstring = 'Select target location. Have {}, need {} more'.format( len(self.target_selection) , self.target_number_limit-len(self.target_selection))
+                cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+40 ), font, 1, (255, 100, 60), 2)
 
-                            UIstring = 'Select target locations in sequence.'
-                            cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+40 ), font, 1, (255, 100, 60), 2)
+                UIstring = 'Good -> Press Set'
+                cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+80 ), font, 1, (255, 0, 0), 2)
 
-                            UIstring = 'Good -> Press Spacebar    '
-                            cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+80 ), font, 1, (255, 0, 0), 2)
+                UIstring = 'Reselect-> Press Restart'
+                cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+120 ), font, 1, (255, 0, 0), 2)
 
-                            UIstring = 'Restart -> Press R '
-                            cv2.putText(self.complete_image_with_text, UIstring, (20, self.visual_img_height+120 ), font, 1, (255, 0, 0), 2)
+        print(self.target_selection)
+        self.targetlatlon.latitude = self.target_selection[0][2]
+        self.targetlatlon.longitude = self.target_selection[0][3]
 
-                # if len(self.roi_selection) < 2:
-
-
-
-
-    # =============================================================
-    # mouse event handle, for ROI selection 
-    # =============================================================
-    def click_and_crop( self, event, x, y, flags, param):
-        # if the left mouse button was clicked, record the starting (x, y) coordinates
-        if event == cv2.EVENT_LBUTTONDOWN:
-            # cv2.circle(self.complete_image_with_text, (x,y), 5, (0,255,0), -1)
-            self.roi_selection.append( [x,y] )
-            # print('roi: {}'.format(self.roi_selection))
 
     # =============================================================
     # mouse event handle, for target locaton selections 
     # =============================================================
     def click_for_target(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            # cv2.circle(self.complete_image_with_text, (x,y), 5, (0,255,0), -1)
-            (lat, lon) = self.pix2latlon([x,y])
-            self.target_selection.append( [x,y, lat, lon ] )
-            print('target_selection:')
-            for t in self.target_selection:
-                print(t)
+            if 0 <= x <= self.visual_img_width and 0 <= y <= self.visual_img_height:
+                (lat, lon) = self.pix2latlon((x,y))
+                self.target_selection.append( [x,y, lat, lon] )
+                while len(self.target_selection) > self.target_number_limit:
+                    self.target_selection.pop(0)
+
+            if self.button_target_restart_boundary[0][0] < x < self.button_target_restart_boundary[1][0] and self.button_target_restart_boundary[0][1] < y < self.button_target_restart_boundary[1][1] :
+                self.target_restart_button_pressed = True 
+                print('Restart pressed ')
+            if len(self.target_selection) == self.target_number_limit:
+                if self.button_target_set_boundary[0][0] < x < self.button_target_set_boundary[1][0] and self.button_target_set_boundary[0][1] < y < self.button_target_set_boundary[1][1] :
+                    self.target_set_button_pressed = True 
+                    print('Set pressed ')
+
+
+
+
+    # =============================================================
+    # one of main functions, for user-wanted action update 
+    # =============================================================
+    def select_action(self):
+        self.action = -1
+
+        self.complete_image_backup = self.complete_image.copy()
+        self.complete_image_with_text_backup = self.complete_image_with_text.copy()
+
+        button_width  = 100
+        button_height = 100
+        button_top_offset = 30
+
+        start_left = 30
+        home_left  = 230
+        abort_left = 430
+
+        app_exit_left = 630
+
+        self.button_start_boundary = [(start_left, self.visual_img_height+button_top_offset),(start_left+button_width, self.visual_img_height+button_top_offset+button_height)]
+        self.button_home_boundary  = [(home_left, self.visual_img_height+button_top_offset) ,(home_left+button_width , self.visual_img_height+button_top_offset+button_height)]
+        self.button_abort_boundary = [(abort_left, self.visual_img_height+button_top_offset),(abort_left+button_width, self.visual_img_height+button_top_offset+button_height)]
+        self.button_exit_boundary = [(app_exit_left, self.visual_img_height+button_top_offset),(app_exit_left+button_width, self.visual_img_height+button_top_offset+button_height)]
+
+        self.start_button_pressed = False
+        self.home_button_pressed = False
+        self.abort_button_pressed = False
+        self.exit_button_pressed = False
+
+        self.user_command_msg = Int8()
+        
+        
+        cv2.namedWindow("Task Assign")
+        cv2.setMouseCallback("Task Assign", self.push_virtual_button)
+        # cv2.createButton("Back",self.back,None,cv2.QT_PUSH_BUTTON,1)
+
+        while True:
+            # display the image and wait for a button-push
+
+            if self.exit_button_pressed == True:
+                break
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+
+            cv2.imshow("Task Assign", self.complete_image_with_text)
+            key = cv2.waitKey(1) & 0xFF
+
+            self.selection_img_init()
+            cv2.rectangle( self.complete_image_with_text, self.button_start_boundary[0], self.button_start_boundary[1], (0,255,0), 5 )
+            cv2.rectangle( self.complete_image_with_text, self.button_start_boundary[0], self.button_start_boundary[1], (100,255,100), -1 )
+            UIstring = 'Start'
+            cv2.putText(self.complete_image_with_text, UIstring, (self.button_start_boundary[0][0]+10, self.button_start_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
+
+            cv2.rectangle( self.complete_image_with_text, self.button_home_boundary[0], self.button_home_boundary[1], (0,255,0), 5 )
+            cv2.rectangle( self.complete_image_with_text, self.button_home_boundary[0], self.button_home_boundary[1], (100,255,100), -1 )
+            UIstring = 'Home'
+            cv2.putText(self.complete_image_with_text, UIstring, (self.button_home_boundary[0][0]+10, self.button_home_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
+
+            cv2.rectangle( self.complete_image_with_text, self.button_abort_boundary[0], self.button_abort_boundary[1], (0,255,0), 5 )
+            cv2.rectangle( self.complete_image_with_text, self.button_abort_boundary[0], self.button_abort_boundary[1], (100,255,100), -1 )
+            UIstring = 'Abort'
+            cv2.putText(self.complete_image_with_text, UIstring, (self.button_abort_boundary[0][0]+10, self.button_abort_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
+
+            cv2.rectangle( self.complete_image_with_text, self.button_exit_boundary[0], self.button_exit_boundary[1], (0,255,0), 5 )
+            cv2.rectangle( self.complete_image_with_text, self.button_exit_boundary[0], self.button_exit_boundary[1], (100,255,100), -1 )
+            UIstring = 'Exit'
+            cv2.putText(self.complete_image_with_text, UIstring, (self.button_exit_boundary[0][0]+10, self.button_exit_boundary[0][1]+60 ), font, 1, (255, 0, 0), 2)
+
+
+    # =============================================================
+    # mouse event handle, for button 
+    # =============================================================
+    def push_virtual_button( self, event, x, y, flags, param):
+        # if the left mouse button was clicked, record the starting (x, y) coordinates
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # print('x,y: {} {}'.format(x,y))
+
+            if self.button_start_boundary[0][0] < x < self.button_start_boundary[1][0] and self.button_start_boundary[0][1] < y < self.button_start_boundary[1][1] :
+                self.start_button_pressed = True 
+                print('\nstart pressed ')
+                self.user_command_msg.data = 0
+                self.user_pub.publish(self.user_command_msg)
+
+                self.target_gps_pub.publish(self.targetlatlon)
+
+            elif self.button_home_boundary[0][0] < x < self.button_home_boundary[1][0] and self.button_home_boundary[0][1] < y < self.button_home_boundary[1][1] :
+                self.home_button_pressed = True 
+                print('\nhome pressed ')
+                self.user_command_msg.data = 1
+                self.user_pub.publish(self.user_command_msg)
+
+            elif self.button_abort_boundary[0][0] < x < self.button_abort_boundary[1][0] and self.button_abort_boundary[0][1] < y < self.button_abort_boundary[1][1] :
+                self.abort_button_pressed = True 
+                print('\nabort pressed ')
+                self.user_command_msg.data = 2
+                self.user_pub.publish(self.user_command_msg)
+
+            elif self.button_exit_boundary[0][0] < x < self.button_exit_boundary[1][0] and self.button_exit_boundary[0][1] < y < self.button_exit_boundary[1][1] :
+                self.exit_button_pressed = True 
+                print('\nexit pressed ')
 
 
     # =============================================================

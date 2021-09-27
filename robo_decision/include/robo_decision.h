@@ -105,6 +105,7 @@ namespace robo_decision
     void Init_return_to_home(const geometry_msgs::PoseStamped &home_location);
     void Init_stop_vehicle_twist();
     bool Check_system_ok();
+    void Setup_topics();
   };
 } // namespace robo_decision
 

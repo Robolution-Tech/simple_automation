@@ -30,6 +30,7 @@ namespace robo_decision
       hard_code_topic = config_reader["hard_code_topic"];
       hard_code_cmd_vel_topic = config_reader["hard_code_cmd_vel_topic"];
       resume_after_stop = bool(config_reader["resume_after_stop"]);
+      Setup_topics();
     }
   };
   RoboDecision::~RoboDecision() = default;
@@ -40,31 +41,10 @@ namespace robo_decision
     {
       // TODO: Complete the expression for different state:
       is_system_ok = Check_system_ok();
+      // robo_decision_system_state_pub.publish(int(system_state));
       switch (system_state)
       {
       case State::INIT:
-
-        // set up publishers:
-        cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(cmd_vel_pub_topic, 1000);
-        robo_decision_system_state_pub =
-            nh.advertise<std_msgs::Int8>(robo_decision_system_state_topic, 1000);
-
-        // set up subscribers:
-        cmd_vel_sub = nh.subscribe(cmd_vel_sub_topic, 1000,
-                                   &RoboDecision::Cmd_vel_callback, this);
-        user_command_sub = nh.subscribe(
-            user_command_topic, 1000, &RoboDecision::User_command_callback, this);
-        processing_sub =
-            nh.subscribe(processing_topic, 1000,
-                         &RoboDecision::Processing_topic_callback, this);
-        safety_sub = nh.subscribe(safety_topic, 1000,
-                                  &RoboDecision::Safety_topic_callback, this);
-        hard_code_sub = nh.subscribe(hard_code_topic, 1000,
-                                     &RoboDecision::Hard_code_callback, this);
-        hard_code_cmd_vel_sub =
-            nh.subscribe(hard_code_cmd_vel_topic, 1000,
-                         &RoboDecision::Hard_code_cmd_vel_callback, this);
-
         // Waiting for move_base action server to come up
         while (!ac.waitForServer(ros::Duration(5.0)) && ros::ok())
         {
@@ -267,5 +247,29 @@ namespace robo_decision
       return false;
     }
     return true;
+  }
+
+  void RoboDecision::Setup_topics()
+  {
+    // set up publishers:
+    cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(cmd_vel_pub_topic, 1000);
+    robo_decision_system_state_pub =
+        nh.advertise<std_msgs::Int8>(robo_decision_system_state_topic, 1000);
+
+    // set up subscribers:
+    cmd_vel_sub = nh.subscribe(cmd_vel_sub_topic, 1000,
+                               &RoboDecision::Cmd_vel_callback, this);
+    user_command_sub = nh.subscribe(
+        user_command_topic, 1000, &RoboDecision::User_command_callback, this);
+    processing_sub =
+        nh.subscribe(processing_topic, 1000,
+                     &RoboDecision::Processing_topic_callback, this);
+    safety_sub = nh.subscribe(safety_topic, 1000,
+                              &RoboDecision::Safety_topic_callback, this);
+    hard_code_sub = nh.subscribe(hard_code_topic, 1000,
+                                 &RoboDecision::Hard_code_callback, this);
+    hard_code_cmd_vel_sub =
+        nh.subscribe(hard_code_cmd_vel_topic, 1000,
+                     &RoboDecision::Hard_code_cmd_vel_callback, this);
   }
 } // namespace robo_decision

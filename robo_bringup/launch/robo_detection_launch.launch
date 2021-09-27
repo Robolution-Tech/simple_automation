@@ -1,0 +1,7 @@
+<launch>
+
+  <node name="object_pose_estimation_node" pkg="robo_detection" type="object_pose_estimation.py" output="screen"/>
+
+  <node name="target_pose_process_node" pkg="robo_detection" type="target_pose_process.py" output="screen"/>
+    
+</launch>

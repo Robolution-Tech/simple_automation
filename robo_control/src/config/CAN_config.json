@@ -1,0 +1,9 @@
+{
+    "DevType": 2,
+    "ChMask": 0,
+    "TxType": 1,
+    "ControlInputType": "joystick",
+    "keyboard_mode": "continues",
+    "twist_max_speed": 5,
+    "joystick_pub_flag": true
+}

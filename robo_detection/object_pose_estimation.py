@@ -52,7 +52,7 @@ class NumpyArrayEncoder(JSONEncoder):
 
 class object_pose_estimation():
 
-    def __init__(self, config_json_path=None):
+    def __init__(self, config_json_path=currentdir+'/config.json'):
         rospy.init_node("object_pose_estimation_node", anonymous=True)
         self.br = tf.TransformBroadcaster()
         self.parse_variables(currentdir + "/detection_config.ini") 
@@ -69,7 +69,7 @@ class object_pose_estimation():
             cameraK = np.array([[cam_fx, 0, cam_cx],[0,cam_fy, cam_cy],[0,0,1]])
             cameraRT= np.asarray(self.parm["cam_RT"])
             self.cameraKRT = np.dot( cameraK, cameraRT )
-            self.liar_pose = np.asarray(self.parm["lidar_pose"])
+            self.lidar_pose = np.asarray(self.parm["lidar_pose"])
             self.max_bbox_allowed = self.parm["max_bbox_allowed"]
         
         self.detector = yolo5_detector()
@@ -160,7 +160,7 @@ class object_pose_estimation():
             
             self.naive_estimation(pred, class_name)
         elif self.pose_estimate_method == ESTIMATION_TYPE['LIDAR_SEG']:
-            print("LIDAR_SEG estimation method")
+            # print("LIDAR_SEG estimation method")
             #run 2d bbox detection
             pred = self.detector.predict(self.img)[0]
             self.detector.box_label(pred, self.img)
@@ -180,74 +180,82 @@ class object_pose_estimation():
         )
 
 
-    @njit
+    # @njit
+    @timer
     def lidar_seg_estimation(self, pred, class_name):
         if self.uv is None:
             return
         obj_num = len(pred)
+        # print(obj_num)
         obj_pose_list = []
         img_x = self.detector.new_img_dim[0]
         img_y = self.detector.new_img_dim[1]
-        
+        counter = 0
+        # for multiple bbox:
+        obj_bbox = np.zeros((min(self.parm["max_bbox_allowed"], obj_num), 4))
         #TODO: determin which obj is the right one to use
         #compute pose for each class_name obj
-        for i in range(obj_num):        
-            #compute bbox size
-            bbox = pred[i,0:4]
-            prob = pred[i, 4].item()
-            class_id = self.detector.get_class_id(class_name)
-            class_id_pred = pred[i,5]
-            counter = 0
-            # for multiple bbox:
-            obj_bbox = np.zeros((min(self.parm["max_bbox_allowed"], obj_num), 4))
-            if class_id == class_id_pred:
-                start_point = ( int( bbox[0] ) , int( bbox[1] ))
-                end_point =   ( int( bbox[2] ) , int( bbox[3] ))
-                obj_bbox[counter, :] = [int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])]
-                counter += 1
-            num_of_obj = obj_bbox.shape[0]
-            num_of_points = self.uv.shape[1]
-            max_num_of_points_per_obj = self.parm["max_num_of_points_per_obj"]
-            point_indices_every_obj = np.zeros(( num_of_obj, max_num_of_points_per_obj )).astype(np.int32)
-            point_on_every_obj = np.zeros(( num_of_obj, max_num_of_points_per_obj, 2 ))
-            point_counter_every_obj = np.zeros((num_of_obj)).astype(np.int32)
+        if obj_num > 0:
+            for i in range(min(self.parm["max_bbox_allowed"], obj_num)):        
+                #compute bbox size
+                bbox = pred[i,0:4]
+                prob = pred[i, 4].item()
+                class_id = self.detector.get_class_id(class_name)
+                class_id_pred = pred[i,5]
+
+                if class_id == class_id_pred:
+                    start_point = ( int( bbox[0] ) , int( bbox[1] ))
+                    end_point =   ( int( bbox[2] ) , int( bbox[3] ))
+                    obj_bbox[counter, :] = [int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])]
+                    counter += 1
             
-            # TODO: Multiple objects (with the same type) are detected?
-            
-            bbox_center = np.zeros((num_of_obj, 2))
-            bbox_wh = np.zeros((num_of_obj, 2))
-            bbox_wh_small = np.zeros((num_of_obj, 2))
-            bbox_array = [start_point[0], start_point[1], end_point[0], end_point[1]]
-            bbox_center[:,0] = ( (obj_bbox[:,1] + obj_bbox[:,3])/2.0 ).astype(np.int) 
-            bbox_center[:,1] = ( (obj_bbox[:,0] + obj_bbox[:,2])/2.0 ).astype(np.int) 
-            bbox_wh[:,0] = obj_bbox[:,3] - obj_bbox[:,1]
-            bbox_wh[:,1] = obj_bbox[:,2] - obj_bbox[:,0]
-            bbox_trim_edge = (bbox_wh/6).astype(np.int)
-            obj_box_trimmed_array = np.zeros_like(obj_bbox)
-            obj_box_trimmed_array[:,0] = obj_bbox[:,0] + bbox_trim_edge[:,1]
-            obj_box_trimmed_array[:,1] = obj_bbox[:,1] - bbox_trim_edge[:,1]
-            obj_box_trimmed_array[:,2] = obj_bbox[:,2] + bbox_trim_edge[:,0]
-            obj_box_trimmed_array[:,3] = obj_bbox[:,3] - bbox_trim_edge[:,0]
+            if counter > 0:
+                num_of_obj = obj_bbox.shape[0]
+                num_of_points = self.uv.shape[1]
+                max_num_of_points_per_obj = self.parm["max_num_of_points_per_obj"]
+                point_indices_every_obj = np.zeros(( num_of_obj, max_num_of_points_per_obj )).astype(np.int32)
+                point_on_every_obj = np.zeros(( num_of_obj, max_num_of_points_per_obj, 2 ))
+                point_counter_every_obj = np.zeros((num_of_obj)).astype(np.int32)
+                
+                # TODO: Multiple objects (with the same type) are detected?
+                
+                bbox_center = np.zeros((num_of_obj, 2))
+                bbox_wh = np.zeros((num_of_obj, 2))
+                bbox_wh_small = np.zeros((num_of_obj, 2))
+                bbox_array = [start_point[0], start_point[1], end_point[0], end_point[1]]
+                bbox_center[:,0] = ( (obj_bbox[:,1] + obj_bbox[:,3])/2.0 ).astype(np.int32) 
+                bbox_center[:,1] = ( (obj_bbox[:,0] + obj_bbox[:,2])/2.0 ).astype(np.int32) 
+                bbox_wh[:,0] = obj_bbox[:,3] - obj_bbox[:,1]
+                bbox_wh[:,1] = obj_bbox[:,2] - obj_bbox[:,0]
+                bbox_trim_edge = (bbox_wh/6).astype(np.int32)
+                obj_box_trimmed_array = np.zeros_like(obj_bbox)
+                obj_box_trimmed_array[:,0] = obj_bbox[:,0] + bbox_trim_edge[:,1]
+                obj_box_trimmed_array[:,1] = obj_bbox[:,1] - bbox_trim_edge[:,1]
+                obj_box_trimmed_array[:,2] = obj_bbox[:,2] + bbox_trim_edge[:,0]
+                obj_box_trimmed_array[:,3] = obj_bbox[:,3] - bbox_trim_edge[:,0]
 
-            for i in range(num_of_obj):
-                original_bbox_inds = np.where( (self.uv[1]>=obj_bbox[i,0]) & (self.uv[1]<=obj_bbox[i,2]) & (self.uv[0]>=obj_bbox[i,1]) & (self.uv[0]<=obj_bbox[i,3])  )
-                inds = np.where( (self.uv[1]>=obj_box_trimmed_array[i,0]) & (self.uv[1]<=obj_box_trimmed_array[i,2]) & (self.uv[0]>=obj_box_trimmed_array[i,1]) & (self.uv[0]<=obj_box_trimmed_array[i,3])  )
-                print('cropped  bbox points: ', inds[0].shape )
-                print('original bbox points: ', original_bbox_inds[0].shape )
-                length_of_points = inds[0].shape[0]
-                point_indices_every_obj[i, :length_of_points ] = inds[0]
+                for i in range(num_of_obj):
+                    original_bbox_inds = np.where( (self.uv[1]>=obj_bbox[i,0]) & (self.uv[1]<=obj_bbox[i,2]) & (self.uv[0]>=obj_bbox[i,1]) & (self.uv[0]<=obj_bbox[i,3])  )
+                    inds = np.where( (self.uv[1]>=obj_box_trimmed_array[i,0]) & (self.uv[1]<=obj_box_trimmed_array[i,2]) & (self.uv[0]>=obj_box_trimmed_array[i,1]) & (self.uv[0]<=obj_box_trimmed_array[i,3])  )
+                    print('cropped  bbox points: ', inds[0].shape )
+                    print('original bbox points: ', original_bbox_inds[0].shape )
+                    length_of_points = inds[0].shape[0]
+                    point_indices_every_obj[i, :length_of_points ] = inds[0]
 
-            people_xyz_array = np.zeros((num_of_obj,3))
+                people_xyz_array = np.zeros((num_of_obj,3))
 
-            for ii in range(num_of_obj):
-                point_indices_this_obj = point_indices_every_obj[ii][point_indices_every_obj[ii] != 0]
-                points_xyz_this_obj = self.p_xyz[:, point_indices_this_obj ]#[:point_counter_every_person[ii]]
-                points_xyz_this_obj_to_baselink = np.dot(self.lidar_pose, points_xyz_this_obj)
-                people_xyz_array[ii, :] = points_xyz_this_obj_to_baselink
+                for ii in range(num_of_obj):
+                    point_indices_this_obj = point_indices_every_obj[ii][point_indices_every_obj[ii] != 0]
+                    points_xyz_this_obj = self.p_xyz[:, point_indices_this_obj ]#[:point_counter_every_person[ii]]
+                    points_xyz_this_obj_to_baselink = np.dot(self.lidar_pose, points_xyz_this_obj)
+                    # people_xyz_array[ii, :] = points_xyz_this_obj_to_baselink
+                    people_xyz_array[ii, :] = [np.average(points_xyz_this_obj_to_baselink[0, :]), np.average(points_xyz_this_obj_to_baselink[1, :]), np.average(points_xyz_this_obj_to_baselink[2, :])]
 
-            pose_x = np.average(people_xyz_array[:, 0])
-            pose_y = np.average(people_xyz_array[:, 1])
-            self.send_obj_tf((pose_x,pose_y), "base_link", class_name)
+                pose_x = np.average(people_xyz_array[:, 0])
+                pose_y = np.average(people_xyz_array[:, 1])
+                print("Sending pose: {}, {}".format(pose_x , pose_y))
+                self.send_obj_tf((pose_x,pose_y), "base_link", class_name)
+        
 
 
     @staticmethod
@@ -255,17 +263,20 @@ class object_pose_estimation():
         with open(config_file_path, "r") as f:
             return json.load(f)
     
-    @njit
+    # @njit
     def lidar_callback(self, msg):
         self.p_xyz = np.ones((4, self.parm["number_of_points"]))
         pt_count = 0
+        t1 = time.time()
         for point in sensor_msgs.point_cloud2.read_points(msg, skip_nans=True):
                 self.p_xyz[0:3 , pt_count ] = point[0:3]
                 pt_count += 1
+        t = int((time.time() - t1)*1000)
+        print('pppc2 :', t)
         uvw = np.dot( self.cameraKRT, self.p_xyz )
         uvw[2][uvw[2]==0.0] = 0.01
         uvw /= uvw[2]  
-        uvw = uvw.astype(np.int)
+        uvw = uvw.astype(np.int32)
         self.uv = uvw[0:2]
             
 

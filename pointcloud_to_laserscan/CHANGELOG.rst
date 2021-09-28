@@ -2,6 +2,25 @@
 Changelog for package pointcloud_to_laserscan
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.4.1 (2019-08-30)
+------------------
+* LaserScan to PointCloud node + nodelet (`#28 <https://github.com/ros-perception/pointcloud_to_laserscan/issues/28>`_)
+* fix roslint (`#29 <https://github.com/ros-perception/pointcloud_to_laserscan/issues/29>`_)
+* Merge pull request `#20 <https://github.com/ros-perception/pointcloud_to_laserscan/issues/20>`_ from ros-perception/range_max_check
+  Add check for range_max
+* Add check for range_max
+* Contributors: Paul Bovbel, Rein Appeldoorn
+
+1.4.0 (2017-11-14)
+------------------
+* Added inf_epsilon parameter that determines the value added to max range when use_infs parameter is set to false
+* Merge pull request `#11 <https://github.com/ros-perception/pointcloud_to_laserscan/issues/11>`_ from ros-perception/mikaelarguedas-patch-1
+  update to use non deprecated pluginlib macro
+* Migrate to package format 2; add roslint
+* Add sane parameter defaults; fixup lint warnings
+* update to use non deprecated pluginlib macro
+* Contributors: Mikael Arguedas, Paul Bovbel, Prasanna Kannappan
+
 1.3.1 (2017-04-26)
 ------------------
 * Merge pull request `#4 <https://github.com/ros-perception/pointcloud_to_laserscan/issues/4>`_ from yoshimalucky/fix-miscalculation-in-angle-increment

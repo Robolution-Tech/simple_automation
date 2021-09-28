@@ -1,7 +1,7 @@
 /*
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2010-2012, Willow Garage, Inc.
+ *  Copyright (c) 2019, Eurotec, Netherlands
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -35,17 +35,18 @@
  */
 
 /*
- * Author: Paul Bovbel
+ * Author: Rein Appeldoorn
  */
 
-#ifndef POINTCLOUD_TO_LASERSCAN_POINTCLOUD_TO_LASERSCAN_NODELET_H
-#define POINTCLOUD_TO_LASERSCAN_POINTCLOUD_TO_LASERSCAN_NODELET_H
+#ifndef POINTCLOUD_TO_LASERSCAN_LASERSCAN_TO_POINTCLOUD_NODELET_H
+#define POINTCLOUD_TO_LASERSCAN_LASERSCAN_TO_POINTCLOUD_NODELET_H
 
 #include <boost/thread/mutex.hpp>
+#include <laser_geometry/laser_geometry.h>
 #include <message_filters/subscriber.h>
 #include <nodelet/nodelet.h>
 #include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/LaserScan.h>
 #include <string>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/message_filter.h>
@@ -53,45 +54,43 @@
 
 namespace pointcloud_to_laserscan
 {
-typedef tf2_ros::MessageFilter<sensor_msgs::PointCloud2> MessageFilter;
-/**
-* Class to process incoming pointclouds into laserscans. Some initial code was pulled from the defunct turtlebot
-* pointcloud_to_laserscan implementation.
-*/
-class PointCloudToLaserScanNodelet : public nodelet::Nodelet
+typedef tf2_ros::MessageFilter<sensor_msgs::LaserScan> MessageFilter;
+
+//! \brief The PointCloudToLaserScanNodelet class to process incoming laserscans into pointclouds.
+//!
+class LaserScanToPointCloudNodelet : public nodelet::Nodelet
 {
 public:
-  PointCloudToLaserScanNodelet();
+  LaserScanToPointCloudNodelet();
 
 private:
   virtual void onInit();
 
-  void cloudCb(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
-  void failureCb(const sensor_msgs::PointCloud2ConstPtr& cloud_msg,
-                 tf2_ros::filter_failure_reasons::FilterFailureReason reason);
+  void scanCallback(const sensor_msgs::LaserScanConstPtr& scan_msg);
+  void failureCallback(const sensor_msgs::LaserScanConstPtr& scan_msg,
+                       tf2_ros::filter_failure_reasons::FilterFailureReason reason);
 
   void connectCb();
-
   void disconnectCb();
 
-  ros::NodeHandle nh_, private_nh_;
+  ros::NodeHandle nh_;
+  ros::NodeHandle private_nh_;
   ros::Publisher pub_;
   boost::mutex connect_mutex_;
 
   boost::shared_ptr<tf2_ros::Buffer> tf2_;
   boost::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
-  message_filters::Subscriber<sensor_msgs::PointCloud2> sub_;
+  message_filters::Subscriber<sensor_msgs::LaserScan> sub_;
   boost::shared_ptr<MessageFilter> message_filter_;
+
+  laser_geometry::LaserProjection projector_;
 
   // ROS Parameters
   unsigned int input_queue_size_;
   std::string target_frame_;
-  double tolerance_;
-  double min_height_, max_height_, angle_min_, angle_max_, angle_increment_, scan_time_, range_min_, range_max_;
-  bool use_inf_;
-  double inf_epsilon_;
+  double transform_tolerance_;
 };
 
 }  // namespace pointcloud_to_laserscan
 
-#endif  // POINTCLOUD_TO_LASERSCAN_POINTCLOUD_TO_LASERSCAN_NODELET_H
+#endif  // POINTCLOUD_TO_LASERSCAN_LASERSCAN_TO_POINTCLOUD_NODELET_H

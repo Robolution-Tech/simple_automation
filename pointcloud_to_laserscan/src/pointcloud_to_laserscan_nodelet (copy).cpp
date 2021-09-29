@@ -58,8 +58,6 @@ void PointCloudToLaserScanNodelet::onInit()
   private_nh_ = getPrivateNodeHandle();
 
   private_nh_.param<std::string>("target_frame", target_frame_, "");
-  private_nh_.param<std::string>("lidar_left_topic", lidar_left_topic_, "");
-  private_nh_.param<std::string>("lidar_right_topic", lidar_right_topic_, "");
   private_nh_.param<double>("transform_tolerance", tolerance_, 0.01);
   private_nh_.param<double>("min_height", min_height_, std::numeric_limits<double>::min());
   private_nh_.param<double>("max_height", max_height_, std::numeric_limits<double>::max());
@@ -102,13 +100,13 @@ void PointCloudToLaserScanNodelet::onInit()
   {
     tf2_.reset(new tf2_ros::Buffer());
     tf2_listener_.reset(new tf2_ros::TransformListener(*tf2_));
-    message_filter_.reset(new MessageFilter(lidar_left_sub_, *tf2_, target_frame_, input_queue_size_, nh_));
+    message_filter_.reset(new MessageFilter(sub_, *tf2_, target_frame_, input_queue_size_, nh_));
     message_filter_->registerCallback(boost::bind(&PointCloudToLaserScanNodelet::cloudCb, this, _1));
     message_filter_->registerFailureCallback(boost::bind(&PointCloudToLaserScanNodelet::failureCb, this, _1, _2));
   }
   else  // otherwise setup direct subscription
   {
-    lidar_left_sub_.registerCallback(boost::bind(&PointCloudToLaserScanNodelet::cloudCb, this, _1));
+    sub_.registerCallback(boost::bind(&PointCloudToLaserScanNodelet::cloudCb, this, _1));
   }
 
   pub_ = nh_.advertise<sensor_msgs::LaserScan>("scan", 10, boost::bind(&PointCloudToLaserScanNodelet::connectCb, this),
@@ -118,11 +116,10 @@ void PointCloudToLaserScanNodelet::onInit()
 void PointCloudToLaserScanNodelet::connectCb()
 {
   boost::mutex::scoped_lock lock(connect_mutex_);
-  if (pub_.getNumSubscribers() > 0 && lidar_left_sub_.getSubscriber().getNumPublishers() == 0 && lidar_right_sub_.getSubscriber().getNumPublishers() == 0)
+  if (pub_.getNumSubscribers() > 0 && sub_.getSubscriber().getNumPublishers() == 0)
   {
     NODELET_INFO("Got a subscriber to scan, starting subscriber to pointcloud");
-    lidar_left_sub_.subscribe(nh_, lidar_left_topic_, input_queue_size_);
-    lidar_right_sub_.subscribe(nh_, lidar_right_topic_, input_queue_size_);
+    sub_.subscribe(nh_, "cloud_in", input_queue_size_);
   }else{
     printf("no subscriber");
   }
@@ -134,7 +131,7 @@ void PointCloudToLaserScanNodelet::disconnectCb()
   if (pub_.getNumSubscribers() == 0)
   {
     NODELET_INFO("No subscibers to scan, shutting down subscriber to pointcloud");
-    lidar_left_sub_.unsubscribe();
+    sub_.unsubscribe();
   }
 }
 

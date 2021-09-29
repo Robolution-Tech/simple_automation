@@ -1,9 +1,11 @@
 <launch>
     <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
-      <remap from="cloud_in" to="/camera/depth/points"/>
-      <remap from="scan" to="/camera/scan" />
+      <remap from="scan" to="/scan" />
       <rosparam>
-        target_frame: camera_link
+        lidar_left_topic: /livox/lidar_3GGDJ3400100831
+        lidar_right_topic: /livox/lidar_3GGDJ1500104981
+
+        target_frame: livox_frame
         transform_tolerance: 0.01
         min_height: 0.0
         max_height: 1.0

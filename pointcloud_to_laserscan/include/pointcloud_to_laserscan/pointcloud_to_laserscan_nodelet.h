@@ -80,12 +80,15 @@ private:
 
   boost::shared_ptr<tf2_ros::Buffer> tf2_;
   boost::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
-  message_filters::Subscriber<sensor_msgs::PointCloud2> sub_;
+  message_filters::Subscriber<sensor_msgs::PointCloud2> lidar_left_sub_;
+  message_filters::Subscriber<sensor_msgs::PointCloud2> lidar_right_sub_;
   boost::shared_ptr<MessageFilter> message_filter_;
 
   // ROS Parameters
   unsigned int input_queue_size_;
   std::string target_frame_;
+  std::string lidar_left_topic_;
+  std::string lidar_right_topic_;
   double tolerance_;
   double min_height_, max_height_, angle_min_, angle_max_, angle_increment_, scan_time_, range_min_, range_max_;
   bool use_inf_;

@@ -1,0 +1,7 @@
+{
+    "camera_frame_id": ["usb_cam_left", "usb_cam_right"],
+    "device_id": [0, 2],
+    "check_device_compliance": 1,
+    "fps": 30,
+    "resolution": ["720p", "720p"]
+}

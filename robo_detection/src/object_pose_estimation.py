@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-
+from maskrcnn_detect import MaskRcnn
 from yolo5_detect import yolo5_detector
 from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import PoseStamped
@@ -14,50 +14,30 @@ import os, sys
 import numpy as np
 import cv2
 import json
-from json import JSONEncoder
 import tf
-
-from numba import njit
-
-
-import functools
 import time
 
-
-
+from helpers.helper_tools import timer, NumpyArrayEncoder
+# from numba import njit
 
 currentdir = os.path.dirname( os.path.realpath(__file__) )
 
-ESTIMATION_TYPE = {"NAIVE": "naive",
-                   "LIDAR_SEG": "lidar_seg"}
+# ESTIMATION_TYPE = {"NAIVE": "naive",
+#                    "LIDAR_SEG": "lidar_seg"}
 
+# estimation mode defination:
+# 0: Naive mode
+# 1: YOLO mode
+# 2: MaskRCNN mode
+class ObjectPoseEstimation():
 
-def timer(func):
-	@functools.wraps(func)
-	def wrapper_timer(*args, **kwargs):
-		start_time = time.time()
-		value = func(*args, **kwargs)
-		end_time = time.time()
-		run_time = end_time - start_time
-		print("Finished {} in {} secs".format(func.__name__, run_time))
-		return value
-	return wrapper_timer 	
-
-class NumpyArrayEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return JSONEncoder.default(self, obj)
-
-
-class object_pose_estimation():
-
-    def __init__(self, config_json_path=currentdir+'/config.json'):
+    def __init__(self, estimation_mode=0, config_json_path=currentdir + '../config/config.json'):
         rospy.init_node("object_pose_estimation_node", anonymous=True)
         self.br = tf.TransformBroadcaster()
-        self.parse_variables(currentdir + "/detection_config.ini") 
+        self.parse_variables(currentdir + "../config/detection_config.ini") 
         self.img = None
         self.uv = None
+        self.estimation_mode = estimation_mode
         
         # Parsing JSON config:
         if config_json_path is None or not os.path.exists(config_json_path):
@@ -71,8 +51,16 @@ class object_pose_estimation():
             self.cameraKRT = np.dot( cameraK, cameraRT )
             self.lidar_pose = np.asarray(self.parm["lidar_pose"])
             self.max_bbox_allowed = self.parm["max_bbox_allowed"]
+            self.maskrcnn_weight = self.parm["maskrcnn_weight"]
         
-        self.detector = yolo5_detector()
+        if self.estimation_mode == 1:
+            self.detector = yolo5_detector()
+        elif self.estimation_mode == 2:
+            if os.path.exists(self.maskrcnn_weight):
+                self.maskrcnn = MaskRcnn(self.maskrcnn_weight)
+                self.mask = None
+            else:
+                raise FileNotFoundError("No weight file for MaskRCNN is found!")
     
         self.cam_subscriber = rospy.Subscriber(self.cam_topic_name, CompressedImage, self.cam_callback,  queue_size = 1)
         self.lidar_subscriber = rospy.Subscriber(self.lidar_topic_name, PointCloud2, self.lidar_callback)
@@ -123,8 +111,6 @@ class object_pose_estimation():
                 
         #tf transfer to base link        
                 
-    
-    
     def parse_variables(self, config_file):
         parser = configparser.ConfigParser()
         parser.read(config_file)
@@ -151,23 +137,26 @@ class object_pose_estimation():
         
         
     def obj_pose_estimation(self, class_name):
-        if self.pose_estimate_method == ESTIMATION_TYPE['NAIVE']:
+        if self.estimation_mode == 0:
             print("naive estimation method")
                     
             #run 2d bbox detection
             pred = self.detector.predict(self.img)[0]
             self.detector.box_label(pred, self.img)
-            
             self.naive_estimation(pred, class_name)
-        elif self.pose_estimate_method == ESTIMATION_TYPE['LIDAR_SEG']:
+            
+        elif self.pose_estimate_method == 1:
             # print("LIDAR_SEG estimation method")
             #run 2d bbox detection
             pred = self.detector.predict(self.img)[0]
             self.detector.box_label(pred, self.img)
-            
             self.lidar_seg_estimation(pred, class_name)
+
+        elif self.pose_estimate_method == 2:
+            self.maskrcnn_estimate()
+            
         else:
-            print("invalid estimation type, please use: \n", json.dumps(ESTIMATION_TYPE))
+            print("invalid estimation type, please choose estimation mode from: \n", [0, 1, 2])
             
             
     def send_obj_tf(self,obj_pose, obj_tf,target_tf):
@@ -180,7 +169,6 @@ class object_pose_estimation():
         )
 
 
-    # @njit
     @timer
     def lidar_seg_estimation(self, pred, class_name):
         if self.uv is None:
@@ -196,12 +184,12 @@ class object_pose_estimation():
         #TODO: determin which obj is the right one to use
         #compute pose for each class_name obj
         if obj_num > 0:
-            for i in range(min(self.parm["max_bbox_allowed"], obj_num)):        
+            for j in range(min(self.parm["max_bbox_allowed"], obj_num)):        
                 #compute bbox size
-                bbox = pred[i,0:4]
-                prob = pred[i, 4].item()
+                bbox = pred[j,0:4]
+                prob = pred[j, 4].item()
                 class_id = self.detector.get_class_id(class_name)
-                class_id_pred = pred[i,5]
+                class_id_pred = pred[j,5]
 
                 if class_id == class_id_pred:
                     start_point = ( int( bbox[0] ) , int( bbox[1] ))
@@ -234,28 +222,33 @@ class object_pose_estimation():
                 obj_box_trimmed_array[:,2] = obj_bbox[:,2] + bbox_trim_edge[:,0]
                 obj_box_trimmed_array[:,3] = obj_bbox[:,3] - bbox_trim_edge[:,0]
 
-                for i in range(num_of_obj):
-                    original_bbox_inds = np.where( (self.uv[1]>=obj_bbox[i,0]) & (self.uv[1]<=obj_bbox[i,2]) & (self.uv[0]>=obj_bbox[i,1]) & (self.uv[0]<=obj_bbox[i,3])  )
-                    inds = np.where( (self.uv[1]>=obj_box_trimmed_array[i,0]) & (self.uv[1]<=obj_box_trimmed_array[i,2]) & (self.uv[0]>=obj_box_trimmed_array[i,1]) & (self.uv[0]<=obj_box_trimmed_array[i,3])  )
+                for j in range(num_of_obj):
+                    original_bbox_inds = np.where( (self.uv[1]>=obj_bbox[j,0]) & (self.uv[1]<=obj_bbox[j,2]) & (self.uv[0]>=obj_bbox[j,1]) & (self.uv[0]<=obj_bbox[j,3])  )
+                    inds = np.where( (self.uv[1]>=obj_box_trimmed_array[j,0]) & (self.uv[1]<=obj_box_trimmed_array[j,2]) & (self.uv[0]>=obj_box_trimmed_array[j,1]) & (self.uv[0]<=obj_box_trimmed_array[j,3])  )
                     print('cropped  bbox points: ', inds[0].shape )
                     print('original bbox points: ', original_bbox_inds[0].shape )
                     length_of_points = inds[0].shape[0]
-                    point_indices_every_obj[i, :length_of_points ] = inds[0]
+                    point_indices_every_obj[j, :length_of_points ] = inds[0]
 
                 people_xyz_array = np.zeros((num_of_obj,3))
 
-                for ii in range(num_of_obj):
-                    point_indices_this_obj = point_indices_every_obj[ii][point_indices_every_obj[ii] != 0]
+                for jj in range(num_of_obj):
+                    point_indices_this_obj = point_indices_every_obj[jj][point_indices_every_obj[jj] != 0]
                     points_xyz_this_obj = self.p_xyz[:, point_indices_this_obj ]#[:point_counter_every_person[ii]]
                     points_xyz_this_obj_to_baselink = np.dot(self.lidar_pose, points_xyz_this_obj)
                     # people_xyz_array[ii, :] = points_xyz_this_obj_to_baselink
-                    people_xyz_array[ii, :] = [np.average(points_xyz_this_obj_to_baselink[0, :]), np.average(points_xyz_this_obj_to_baselink[1, :]), np.average(points_xyz_this_obj_to_baselink[2, :])]
+                    people_xyz_array[jj, :] = [np.average(points_xyz_this_obj_to_baselink[0, :]), np.average(points_xyz_this_obj_to_baselink[1, :]), np.average(points_xyz_this_obj_to_baselink[2, :])]
 
                 pose_x = np.average(people_xyz_array[:, 0])
                 pose_y = np.average(people_xyz_array[:, 1])
                 print("Sending pose: {}, {}".format(pose_x , pose_y))
                 self.send_obj_tf((pose_x,pose_y), "base_link", class_name)
-        
+    
+    def maskrcnn_estimate(self):
+        if self.img is not None:
+            _, self.mask = self.maskrcnn.inference(self.img)
+            if type(self.mask) != bool:
+                pass # TODO
 
 
     @staticmethod
@@ -263,7 +256,6 @@ class object_pose_estimation():
         with open(config_file_path, "r") as f:
             return json.load(f)
     
-    # @njit
     def lidar_callback(self, msg):
         self.p_xyz = np.ones((4, self.parm["number_of_points"]))
         pt_count = 0
@@ -281,7 +273,7 @@ class object_pose_estimation():
             
 
 if __name__== "__main__":
-    estimate_c = object_pose_estimation()
+    estimate_c = ObjectPoseEstimation(estimation_mode=1, config_json_path=currentdir + "../config/config.json")
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
         if estimate_c.img is None:

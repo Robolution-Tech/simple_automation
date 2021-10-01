@@ -31,9 +31,8 @@
 	      output="screen" args="$(arg cmdline_arg)"/>
 	      
 
-    <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_left_broadcaster" args="0 0 0 0 0 0 1 base_link livox_left_frame " />
-    
-    <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_right_broadcaster" args="0 0 0 0 0 0 1 base_link livox_right_frame " />
+	<param name="robot_description" textfile="$(find robo_bringup)/urdf/skidsteerV1.urdf" />
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
     
     
 

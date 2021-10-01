@@ -12,7 +12,7 @@ class CameraInfoService:
         self.cam_para = None
         self.cam_info = CameraInfo()
         self.cam_frame_id = frmae_id
-        self.cam_info_pub = rospy.Publisher(self.cam_frame_id + "/CameraInfo", CameraInfo)
+        self.cam_info_pub = rospy.Publisher(self.cam_frame_id + "/CameraInfo", CameraInfo, queue_size=1)
         if resolution not in supported_resolution:
             raise ValueError("Resolution not supported!")
         else:

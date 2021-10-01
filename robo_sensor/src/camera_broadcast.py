@@ -19,7 +19,6 @@ class CameraBrodcast:
         self.device_id = []
         self.num_of_device = 0
         self.fps = 30
-        self.rate = rospy.Rate(self.fps)
         self.resolution = []
         self.check_compliance = False
         self.quit = False
@@ -40,13 +39,14 @@ class CameraBrodcast:
                 raise AttributeError("Available cameras do not match with frame ID given.")
         print("********** Initiating robo_sensor -> camera node ********** \n")
         rospy.init_node('robo_sensor_camera', anonymous=True)
+        self.rate = rospy.Rate(self.fps)
         self.setup_publishers()
         
 
     def load_varaibles(self):
         with open(self.json_file, "r") as f:
-            self.pram = json.load(f)
-        self.cam_frame_id = self.pram["cam_frame_id"]
+            self.parm = json.load(f)
+        self.cam_frame_id = self.parm["camera_frame_id"]
         self.device_id = self.parm["device_id"]
         self.num_of_device = len(self.cam_frame_id)
         self.check_compliance = bool(self.parm["check_device_compliance"])
@@ -62,7 +62,7 @@ class CameraBrodcast:
             self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FRAME_WIDTH, resolution_w_h[0])
             self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FRAME_HEIGHT, resolution_w_h[1])
             self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-            self.set_of_publishers[self.cam_frame_id[i]] = rospy.Publisher(self.cam_frame_id[i], CompressedImage, queue_size=1)
+            self.set_of_publishers[self.cam_frame_id[i]] = rospy.Publisher(self.cam_frame_id[i] + "/image_raw/compressed", CompressedImage, queue_size=1)
             self.set_of_cam_info[self.cam_frame_id[i]] = CameraInfoService(resolution=self.resolution[i], frmae_id=self.cam_frame_id[i])
 
     @threaded
@@ -127,4 +127,5 @@ class CameraBrodcast:
 
 
 if __name__ == "__main__":
-    cam_brod = CameraBrodcast()
+    cam_brod = CameraBrodcast(json_config_file="/home/bowen-robolution/robolution_ws/src/simple_automation/robo_sensor/config/config.json")
+    cam_brod.main()

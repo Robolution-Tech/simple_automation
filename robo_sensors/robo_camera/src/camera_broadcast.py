@@ -6,7 +6,7 @@ import subprocess
 from camera_info_service import CameraInfoService
 from sensor_msgs.msg import CompressedImage
 from helpers import threaded
-import signal, sys
+import signal, sys, time
 import numpy as np
 
 current_path = os.path.dirname(os.path.realpath(__file__))
@@ -62,6 +62,7 @@ class CameraBrodcast:
             self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FRAME_WIDTH, resolution_w_h[0])
             self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FRAME_HEIGHT, resolution_w_h[1])
             self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+            self.set_of_cv_caps[self.cam_frame_id[i]].set(cv2.CAP_PROP_FPS, self.fps)
             self.set_of_publishers[self.cam_frame_id[i]] = rospy.Publisher(self.cam_frame_id[i] + "/image_raw/compressed", CompressedImage, queue_size=1)
             self.set_of_cam_info[self.cam_frame_id[i]] = CameraInfoService(resolution=self.resolution[i], frmae_id=self.cam_frame_id[i])
 
@@ -73,9 +74,10 @@ class CameraBrodcast:
         while not (self.quit or rospy.is_shutdown()):
             _, frame = cap.read()
             if frame is not None:
-                self.publish_image(pub, frame)
+                self.publish_image(pub, frame, self.cam_frame_id[ind])
                 cam_info.start_publish()
             self.rate.sleep()
+            # time.sleep(1 / self.fps)
             
             
     def main(self):
@@ -97,9 +99,10 @@ class CameraBrodcast:
 
 
     @staticmethod
-    def publish_image(pub, img):
+    def publish_image(pub, img, frame_id):
         msg = CompressedImage()
         msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = frame_id
         msg.format = "jpeg"
         msg.data = np.array(cv2.imencode('.jpg', img)[1]).tobytes()
         pub.publish(msg)

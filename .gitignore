@@ -114,6 +114,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+livox_ros_driver
+
 #yolo
 run/
 runs/

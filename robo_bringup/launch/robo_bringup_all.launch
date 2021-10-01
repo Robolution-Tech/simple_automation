@@ -1,0 +1,22 @@
+<launch>
+
+  <!-- static urdf tf bring up -->
+  <param name="robot_description" textfile="$(find robo_bringup)/urdf/skidsteerV1.urdf" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+	
+  <!-- sensors bring up -->
+  <node name="robo_sensor_camera" pkg="robo_camera" type="camera_broadcast.py" output="screen"/>
+
+  <include file="(find robo_bringup)/launch/robolidar_left_launch.launch"/>
+  <include file="(find robo_bringup)/launch/robolidar_right_launch.launch"/>
+
+
+  <!-- detection bring up -->  
+  <node name="object_pose_estimation_node" pkg="robo_detection" type="object_pose_estimation.py" output="screen"/>
+
+  <node name="target_pose_process_node" pkg="robo_detection" type="target_pose_process.py" output="screen"/>
+  
+  <!-- control module bring up --> 
+  <node pkg="robo_control" type="can_transmit" name="robo_control_node">
+W
+</launch>

@@ -1,0 +1,26 @@
+MODEL:
+  model_path: /yolo_models/yolov5s.pt
+  infe_image_size: 640 
+  names: ["obj1","obj2","obj3"]
+  conf_thres: 0.45
+  iou_thres: 0.45
+
+
+VISUAL:
+  visualize: True
+  line_thickness: 2
+  color1: (0,102,255)
+
+SENSOR:
+  cam_topic_name: /usb_cam/image_raw/compressed
+  lidar_topic_name: /livox/lidar_3GGDJ3400100831
+
+ESTIMATION:
+  pose_estimate_method: lidar_seg
+  #naive config
+  naive_scale: 1.2
+  naive_obj_x: 0.4
+
+TARGET_POSE:
+  offset_x: 1.0
+  offset_y: 1.0

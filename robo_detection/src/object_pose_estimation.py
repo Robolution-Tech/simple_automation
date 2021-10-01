@@ -34,7 +34,8 @@ class ObjectPoseEstimation():
     def __init__(self, estimation_mode=0, config_json_path=currentdir + '../config/config.json'):
         rospy.init_node("object_pose_estimation_node", anonymous=True)
         self.br = tf.TransformBroadcaster()
-        self.parse_variables(currentdir + "../config/detection_config.ini") 
+        config_path = os.path.join(currentdir, "../config" + "/detection_config.ini")
+        self.parse_variables(config_path) 
         self.img = None
         self.uv = None
         self.estimation_mode = estimation_mode

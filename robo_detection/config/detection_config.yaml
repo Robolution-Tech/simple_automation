@@ -21,6 +21,6 @@ ESTIMATION:
   naive_scale: 1.2
   naive_obj_x: 0.4
 
-TARGET_POSE:
-  offset_x: 1.0
-  offset_y: 1.0
+TARGET:
+  pose_offset_x: 1.0
+  pose_offset_y: 1.0

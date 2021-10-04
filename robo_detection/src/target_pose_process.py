@@ -24,7 +24,12 @@ def add_target_pose_offset(pose,offset_x, offset_y):
 
     return [pose_x, pose_y]
 
+def add_vector_offset(pose,scale):
+    angle = math.tan(pose[1], pose[0])
+    pose_x = pose[0] + math.sin(angle) * scale
+    pose_y = pose[1] + math.cos(angle) * scale
 
+    return [pose_x, pose_y]
 
 class target_pose_process():
     

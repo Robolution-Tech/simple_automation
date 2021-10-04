@@ -1,0 +1,6 @@
+robo_param:
+  topic_names:
+    equipment_gps_location_topic: estimated_lat_lon_dir
+    user_input_target_gps_topic: target_gps
+    processed_pose_topic: processed_pose
+    robo_decision_system_state_topic : robo_decision_system_state

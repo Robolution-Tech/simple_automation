@@ -1,7 +1,11 @@
 <launch>
 
-  <node name="object_pose_estimation_node" pkg="robo_detection" type="object_pose_estimation.py" output="screen"/>
+  <node name="object_pose_estimation_node" pkg="robo_detection" type="object_pose_estimation.py" output="screen" respawn="true">
+  	<rosparam file="$(find robo_detection)/config/detection_config.yaml" command="load"/>
+  </node>
 
-  <node name="target_pose_process_node" pkg="robo_detection" type="target_pose_process.py" output="screen"/>
+  <node name="target_pose_process_node" pkg="robo_detection" type="target_pose_process.py" output="screen" respawn="true">
+    	<rosparam file="$(find robo_detection)/config/pose_process_config.yaml" command="load"/>
+  </node>
     
 </launch>

@@ -1,0 +1,5 @@
+offset:
+  dynamic_offset: True
+  dynamic_scale: -0.5 #in meter
+  pose_offset_x: 1.0
+  pose_offset_y: 1.0

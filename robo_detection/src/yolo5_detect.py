@@ -10,6 +10,7 @@ import cv2
 import torch.backends.cudnn as cudnn
 import os, sys
 import yaml
+import rospy
 
 
 currentdir = os.path.dirname( os.path.realpath(__file__) )
@@ -151,31 +152,23 @@ class yolo5_detector():
             self.parse_variables()
 
     def parse_variables(self):
-
-        self.model_path= currentdir + self.params['MODEL']['model_path']  # model.pt path(s)
-        self.imgsz= self.params['MODEL']['infe_image_size']  # inference size (pixels) , one number
-        self.names = self.params['MODEL']['names']
-        self.conf_thres = self.params['MODEL']['conf_thres'] # confidence threshold
-        self.iou_thres=self.params['MODEL']['iou_thres']       # NMS IOU threshold
-        self.bbox_line_thickness = self.params['VISUAL']['line_thickness']
-        self.visualize = self.params['VISUAL']['visualize']
+        self.model_path = currentdir + rospy.get_param('~model/model_path', '/yolo_models/yolov5s.pt') # model.pt path(s)s
+        self.imgsz= rospy.get_param('~model/infe_image_size', 640) # inference size (pixels) , one number
+        self.names = rospy.get_param('~model/names', ["obj1","obj2","obj3"])
+        self.conf_thres = rospy.get_param('~model/conf_thres', 0.45) # confidence threshold
+        self.iou_thres=rospy.get_param('~model/iou_thres',  0.45)       # NMS IOU threshold
+        self.bbox_line_thickness = rospy.get_param('~visual/line_thickness', 2)
+        self.visualize = rospy.get_param('~visual/visualize', True)
         print(self.visualize)
 
-
-    # def parse_variables(self, config_file):
-    #     parser = configparser.ConfigParser()
-    #     parser.read(config_file)
-
-    #     self.model_path= currentdir + parser['MODEL']['model_path']  # model.pt path(s)
-    #     self.imgsz=parser.getint('MODEL','infe_image_size')  # inference size (pixels) , one number
-    #     self.names = parser.get('MODEL','names')
-    #     self.names = json.loads(self.names)
-    #     self.conf_thres = parser.getfloat('MODEL','conf_thres') # confidence threshold
-    #     self.iou_thres=parser.getfloat('MODEL','iou_thres')       # NMS IOU threshold
-    #     self.bbox_line_thickness = parser.getint('VISUAL','line_thickness')
-    #     self.visualize = parser.getboolean('VISUAL','visualize')
-    #     print(self.visualize)
-
+        # self.model_path= currentdir + self.params['MODEL']['model_path']  
+        # self.imgsz= self.params['MODEL']['infe_image_size']  # inference size (pixels) , one number
+        # self.names = self.params['MODEL']['names']
+        # self.conf_thres = self.params['MODEL']['conf_thres'] # confidence threshold
+        # self.iou_thres=self.params['MODEL']['iou_thres']       # NMS IOU threshold
+        # self.bbox_line_thickness = self.params['VISUAL']['line_thickness']
+        # self.visualize = self.params['VISUAL']['visualize']
+        # print(self.visualize)
     
     def get_class_name(self,class_id):
         class_id = int(class_id) 

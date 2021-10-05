@@ -121,7 +121,8 @@ class ObjectPoseEstimation():
                 # print("pose_y to obj", i, "is: ", pose_y)
                 
                 #send tf
-                self.send_obj_tf((pose_x,pose_y), "base_link", class_name)
+                self.send_obj_tf((pose_x,pose_y), "base_link", rospy.get_param(
+            '/robo_param/frame_id/processed_pose_frame', "processed_pose_frame")) #TODO: use dynamic frame id here for later use
                       
                 
         

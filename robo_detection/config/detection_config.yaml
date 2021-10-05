@@ -19,7 +19,8 @@ pose_estimation:
   #naive config
   naive_scale: 1.2
   naive_obj_x: 0.4
-
+  #equipment loading flag  
+  loading_distance: 0.4
 
 cam_lidar_seg:
     cam_fx_fy_cx_cy: [632.4, 644.17, 350.36, 237.68]

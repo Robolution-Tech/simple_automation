@@ -3,3 +3,6 @@ offset:
   dynamic_scale: -0.5 #in meter
   pose_offset_x: 1.0
   pose_offset_y: 1.0
+
+gps:
+  gps_to_meter_scale: 1.0

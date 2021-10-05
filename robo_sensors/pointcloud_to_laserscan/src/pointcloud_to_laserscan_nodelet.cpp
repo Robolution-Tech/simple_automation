@@ -57,10 +57,10 @@ void PointCloudToLaserScanNodelet::onInit()
 {
   boost::mutex::scoped_lock lock(connect_mutex_);
   private_nh_ = getPrivateNodeHandle();
-
   private_nh_.param<std::string>("target_frame", target_frame_, "");
   private_nh_.param<std::string>("lidar_left_topic", lidar_left_topic_, "");
   private_nh_.param<std::string>("lidar_right_topic", lidar_right_topic_, "");
+    private_nh_.param<std::string>("lidar_pointcloud_merged_topic", lidar_pointcloud_merged_topic_, "");
   private_nh_.param<double>("transform_tolerance", tolerance_, 0.01);
   private_nh_.param<double>("min_height", min_height_, std::numeric_limits<double>::min());
   private_nh_.param<double>("max_height", max_height_, std::numeric_limits<double>::max());
@@ -130,7 +130,7 @@ void PointCloudToLaserScanNodelet::onInit()
   pub_ = nh_.advertise<sensor_msgs::LaserScan>("scan", 1, boost::bind(&PointCloudToLaserScanNodelet::connectCb, this),
                                                boost::bind(&PointCloudToLaserScanNodelet::disconnectCb, this));
 
-  cloud_merged_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("cloud_merged", 1, boost::bind(&PointCloudToLaserScanNodelet::connectCb, this),
+  cloud_merged_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_pointcloud_merged_topic_, 1, boost::bind(&PointCloudToLaserScanNodelet::connectCb, this),
                                                boost::bind(&PointCloudToLaserScanNodelet::disconnectCb, this));
 }
 

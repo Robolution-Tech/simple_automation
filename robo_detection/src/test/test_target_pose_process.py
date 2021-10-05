@@ -1,4 +1,4 @@
-from target_pose_process import target_pose_process
+from ..target_pose_process import target_pose_process
 import rospy
 import pytest
 import tf

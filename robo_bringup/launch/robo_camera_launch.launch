@@ -1,0 +1,5 @@
+<launch>
+
+  <node name="robo_sensor_camera" pkg="robo_camera" type="camera_broadcast.py" output="screen"/>
+
+</launch>

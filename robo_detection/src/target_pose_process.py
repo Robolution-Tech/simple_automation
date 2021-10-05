@@ -9,7 +9,6 @@ from tf.transformations import quaternion_from_euler
 import os
 import rospy, tf
 import math
-import configparser
 
 currentdir = os.path.dirname( os.path.realpath(__file__) )
 
@@ -18,24 +17,38 @@ def coord_transform_rotation(x,y,theta):
     y_out = -math.sin(theta) * x + math.cos(theta) * y
     return [x_out, y_out]
 
-def add_target_pose_offset(pose,offset_x, offset_y):
-    pose_x = pose[0] + offset_x
-    pose_y = pose[1] + offset_y
+
+
+def add_vector_offset(pose,scale):
+    angle = math.atan2(pose[1], pose[0])
+    pose_x = pose[0] + math.cos(angle) * scale
+    pose_y = pose[1] + math.sin(angle) * scale
 
     return [pose_x, pose_y]
-
-
 
 class target_pose_process():
     
     def __init__(self):
-        self.parse_variables(currentdir + "/detection_config.ini") 
+        rospy.init_node("target_pose_process_node", anonymous=True)
+        
+        self.dynamic_offset = rospy.get_param('~offset/dynamic_offset',False)
+        self.pose_offset_x = rospy.get_param('~offset/pose_offset_x',1.0)
+        self.pose_offset_y = rospy.get_param('~offset/pose_offset_y',1.0)
+        self.dynamic_scale = rospy.get_param('~offset/dynamic_scale',1.0)
+        
+        
+        self.equipment_gps_location_topic = rospy.get_param('/robo_param/topic_names/equipment_gps_location_topic',"estimated_lat_lon_dir")
+        self.user_input_target_gps_topic = rospy.get_param('/robo_param/topic_names/user_input_target_gps_topic',"target_gps")
+        self.processed_pose_topic = rospy.get_param('/robo_param/topic_names/processed_pose_topic',"processed_pose")
+        self.robo_decision_system_state_topic = rospy.get_param('/robo_param/topic_names/robo_decision_system_state_topic',"robo_decision_system_state")
+        
+        
         self.equipment_gps = None
         self.target_gps = None
         self.robo_decision_system_state = None
         
-        rospy.init_node("target_pose_process_node", anonymous=True)
-        self.equipment_gps_subscriber = rospy.Subscriber("estimated_lat_lon_dir", NavSatFix, self.equipment_gps_callback,  queue_size = 1)
+
+        self.equipment_gps_subscriber = rospy.Subscriber(self.equipment_gps_location_topic, NavSatFix, self.equipment_gps_callback,  queue_size = 1)
         self.target_gps_subscriber = rospy.Subscriber("target_gps",NavSatFix, self.target_gps_callback,  queue_size = 1)
         self.processed_pose_publisher = rospy.Publisher('processed_pose',PoseStamped,queue_size=10)
         
@@ -73,7 +86,7 @@ class target_pose_process():
             global_relatie_angle = math.atan2(global_relative_pose_lon,global_relative_pose_lat)
             angle_trans = theta - global_relatie_angle
             
-            pose_trans = add_target_pose_offset(pose_trans,self.offset_x, self.offset_y)
+            pose_trans = add_target_pose_offset(pose_trans,self.pose_offset_x, self.pose_offset_y)
             self.processed_pose.header.stamp = rospy.Time.now()
             self.processed_pose.header.frame_id = "obj1"
             
@@ -92,7 +105,7 @@ class target_pose_process():
                 (pose_trans, rot_trans) = self.tf_listener.lookupTransform('/obj1','/base_link', rospy.Time(0))
                 # print(pose_trans)
                 # print(rot_trans)
-                pose_offset = add_target_pose_offset(pose_trans,self.offset_x, self.offset_y)
+                pose_offset = self.add_target_pose_offset(pose_trans)
                 self.processed_pose.header.stamp = rospy.Time.now()
                 self.processed_pose.header.frame_id = "obj1"
                 
@@ -117,15 +130,19 @@ class target_pose_process():
     def get_processed_pose(self):
         return self.processed_pose
 
-    def parse_variables(self, config_file):
-        parser = configparser.ConfigParser()
-        parser.read(config_file)
+    def add_target_pose_offset(self,pose):
+        print(self.dynamic_offset)
+        print("pose is", pose)
+        if self.dynamic_offset == True:
+            processed_pose = add_vector_offset(pose,self.dynamic_scale)
+        else:
+            pose_x = pose[0] + self.pose_offset_x
+            pose_y = pose[1] + self.pose_offset_y
 
-        self.offset_x = parser.getfloat('TARGET_POSE','offset_x')  
-        self.offset_y = parser.getfloat('TARGET_POSE','offset_y')  
-       
-        
-        
+            processed_pose = [pose_x, pose_y]
+            
+        print("processed pose is", processed_pose)
+        return processed_pose
 
 if __name__== "__main__":
     pose_p = target_pose_process()

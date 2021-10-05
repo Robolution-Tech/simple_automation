@@ -1,3 +1,0 @@
-float64 latitude
-float64 longitude
-geometry_msgs/Quaternion orientation

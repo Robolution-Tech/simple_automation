@@ -5,12 +5,12 @@ Usage:
 """
 
 import numpy as np
-import configparser
 import torch
 import cv2
 import torch.backends.cudnn as cudnn
 import os, sys
-import json
+import yaml
+import rospy
 
 
 currentdir = os.path.dirname( os.path.realpath(__file__) )
@@ -45,7 +45,14 @@ class yolo5_detector():
     def __init__(self):
 
 
-        self.parse_variables(currentdir + "/detection_config.ini") 
+        # self.parse_variables(currentdir + "/detection_config.ini") 
+        config_path =  os.path.join(currentdir, "../config" + "/detection_config.yaml")
+        if os.path.exists(config_path):
+            self.load_param(config_path) 
+        else:
+            raise FileNotFoundError("No camera yaml file is found!")
+        
+        
         self.colors = Colors()
         
         self.max_det=1000            # maximum detections per image
@@ -138,20 +145,30 @@ class yolo5_detector():
             self.image_plot(image)
         return image
 
-    def parse_variables(self, config_file):
-        parser = configparser.ConfigParser()
-        parser.read(config_file)
+    def load_param(self, yaml_path):
+        with open(yaml_path, "r") as f:
+            self.params = yaml.load(f, Loader=yaml.CLoader)
+        if self.params is not None:
+            self.parse_variables()
 
-        self.model_path= currentdir + parser['MODEL']['model_path']  # model.pt path(s)
-        self.imgsz=parser.getint('MODEL','infe_image_size')  # inference size (pixels) , one number
-        self.names = parser.get('MODEL','names')
-        self.names = json.loads(self.names)
-        self.conf_thres = parser.getfloat('MODEL','conf_thres') # confidence threshold
-        self.iou_thres=parser.getfloat('MODEL','iou_thres')       # NMS IOU threshold
-        self.bbox_line_thickness = parser.getint('VISUAL','line_thickness')
-        self.visualize = parser.getboolean('VISUAL','visualize')
+    def parse_variables(self):
+        self.model_path = currentdir + rospy.get_param('~model/model_path', '/yolo_models/yolov5s.pt') # model.pt path(s)s
+        self.imgsz= rospy.get_param('~model/infe_image_size', 640) # inference size (pixels) , one number
+        self.names = rospy.get_param('~model/names', ["obj1","obj2","obj3"])
+        self.conf_thres = rospy.get_param('~model/conf_thres', 0.45) # confidence threshold
+        self.iou_thres=rospy.get_param('~model/iou_thres',  0.45)       # NMS IOU threshold
+        self.bbox_line_thickness = rospy.get_param('~visual/line_thickness', 2)
+        self.visualize = rospy.get_param('~visual/visualize', True)
         print(self.visualize)
 
+        # self.model_path= currentdir + self.params['MODEL']['model_path']  
+        # self.imgsz= self.params['MODEL']['infe_image_size']  # inference size (pixels) , one number
+        # self.names = self.params['MODEL']['names']
+        # self.conf_thres = self.params['MODEL']['conf_thres'] # confidence threshold
+        # self.iou_thres=self.params['MODEL']['iou_thres']       # NMS IOU threshold
+        # self.bbox_line_thickness = self.params['VISUAL']['line_thickness']
+        # self.visualize = self.params['VISUAL']['visualize']
+        # print(self.visualize)
     
     def get_class_name(self,class_id):
         class_id = int(class_id) 

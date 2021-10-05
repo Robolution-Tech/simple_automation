@@ -9,9 +9,7 @@ import sensor_msgs.point_cloud2
 from tf.transformations import quaternion_from_euler
 
 import rospy
-import configparser
-import os
-import sys
+import os, sys
 import numpy as np
 import cv2
 import json
@@ -23,44 +21,55 @@ from helpers.helper_tools import timer, NumpyArrayEncoder
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
 
-# ESTIMATION_TYPE = {"NAIVE": "naive",
-#                    "LIDAR_SEG": "lidar_seg"}
-
-# estimation mode defination:
-# 0: Naive mode
-# 1: YOLO mode
-# 2: MaskRCNN mode
+ESTIMATION_TYPE = {"NAIVE": "naive",
+                   "LIDAR_SEG": "lidar_seg",
+                    "MASKRCNN": "maskrcnn"}
 
 
 class ObjectPoseEstimation():
 
-    def __init__(self, estimation_mode=0, config_json_path=currentdir + '../config/config.json'):
+    def __init__(self):
         rospy.init_node("object_pose_estimation_node", anonymous=True)
         self.br = tf.TransformBroadcaster()
-        self.parse_variables(currentdir + "../config/detection_config.ini")
         self.img = None
         self.uv = None
-        self.estimation_mode = estimation_mode
 
-        # Parsing JSON config:
-        if config_json_path is None or not os.path.exists(config_json_path):
-            raise FileNotFoundError("JSON config file is not fonud.")
-        else:
-            self.parm = self.config_json(config_json_path)
-            self.cam_parms = self.parm["cam_fx_fy_cx_cy"]
-            cam_fx, cam_fy, cam_cx, cam_cy = self.cam_parms[
-                0], self.cam_parms[1], self.cam_parms[2], self.cam_parms[3]
-            cameraK = np.array(
-                [[cam_fx, 0, cam_cx], [0, cam_fy, cam_cy], [0, 0, 1]])
-            cameraRT = np.asarray(self.parm["cam_RT"])
-            self.cameraKRT = np.dot(cameraK, cameraRT)
-            self.lidar_pose = np.asarray(self.parm["lidar_pose"])
-            self.max_bbox_allowed = self.parm["max_bbox_allowed"]
-            self.maskrcnn_weight = self.parm["maskrcnn_weight"]
-
-        if self.estimation_mode == 1:
+        
+        ##################################################
+        ###############ros param load#####################
+        ##################################################
+        
+        ###camera parameters
+        
+        self.cam_topic_name= rospy.get_param('~sensor/cam_topic_name','/usb_cam/image_raw/compressed')
+        self.lidar_topic_name= rospy.get_param('~sensor/lidar_topic_name','/livox/lidar_3GGDJ3400100831')
+        
+        cam_parms = rospy.get_param('~cam_lidar_seg/cam_fx_fy_cx_cy',[632.4, 644.17, 350.36, 237.68])
+        cam_fx, cam_fy, cam_cx, cam_cy = cam_parms[0], cam_parms[1], cam_parms[2], cam_parms[3]
+        cameraK = np.array([[cam_fx, 0, cam_cx],[0,cam_fy, cam_cy],[0,0,1]])
+        cameraRT= np.asarray(rospy.get_param('~cam_lidar_seg/cam_RT',[[0, -1, 0, 0], [0, 0, -1, 0], [1, 0, 0, 0]]))
+        self.cameraKRT = np.dot( cameraK, cameraRT )
+        
+        self.lidar_pose = np.asarray(rospy.get_param('~cam_lidar_seg/lidar_pose',[[1,0,0,0], [0,1,0,0], [0,0,1, 1]]))
+        self.max_bbox_allowed = rospy.get_param('~max_bbox_allowed',1)
+        
+        
+        ####pose estimation mode
+        self.estimation_method = rospy.get_param('~pose_estimation/estimation_method','naive')
+        print(self.estimation_method)
+        #naive config
+        
+        self.naive_scale = rospy.get_param('~pose_estimation/naive_scale',1.2) # scale
+        self.naive_obj_x = rospy.get_param('~pose_estimation/naive_obj_x',0.4) #width of object in m 
+        
+        
+        ###TODO: add maskrcnn weight dir
+        self.maskrcnn_weight = rospy.get_param('maskrcnn_weight',1)
+        
+        
+        if self.estimation_method == ESTIMATION_TYPE["LIDAR_SEG"] or self.estimation_method == ESTIMATION_TYPE["NAIVE"]:
             self.detector = yolo5_detector()
-        elif self.estimation_mode == 2:
+        elif self.estimation_method == ESTIMATION_TYPE["MASKRCNN"]:
             if os.path.exists(self.maskrcnn_weight):
                 self.maskrcnn = MaskRcnn(self.maskrcnn_weight)
                 self.mask = None
@@ -110,36 +119,17 @@ class ObjectPoseEstimation():
 
                 len_x = end_point[0] - start_point[0]
                 len_y = end_point[1] - start_point[1]
-
-                # compute relative pose x,y
-                pose_x = (img_x / len_x + img_y/len_y) * \
-                    self.naive_scale * self.naive_obj_x
-                print("pose_x to obj", i, "is: ", pose_x)
-                # pose_y  is equal to (bbox_mid - img_mid) / bbox_x*obj_x
-                pose_y = ((end_point[0]-start_point[0]) -
-                          img_x/2) / len_x * self.naive_obj_x
-                print("pose_y to obj", i, "is: ", pose_y)
-
-                self.send_obj_tf((pose_x, pose_y), "base_link", class_name)
-
-        # tf transfer to base link
-
-    def parse_variables(self, config_file):
-        parser = configparser.ConfigParser()
-        parser.read(config_file)
-
-        # sensor config
-        self.cam_topic_name = parser['SENSOR']['cam_topic_name']
-        self.lidar_topic_name = parser['SENSOR']['lidar_topic_name']
-
-        # estimation confg
-        self.pose_estimate_method = parser['ESTIMATION']['pose_estimate_method']
-        self.imgsz = parser.getint('MODEL', 'infe_image_size')
-
-        # naive config
-        self.naive_scale = parser.getfloat('ESTIMATION', 'naive_scale')
-        self.naive_obj_x = parser.getfloat('ESTIMATION', 'naive_obj_x')
-
+                
+                #compute relative pose x,y
+                pose_x = (img_x/ len_x + img_y/len_y) * self.naive_scale  * self.naive_obj_x
+                # print("pose_x to obj", i, "is: ", pose_x)
+                #pose_y  is equal to (bbox_mid - img_mid) / bbox_x*obj_x
+                pose_y = ((end_point[0]-start_point[0]) - img_x/2 ) / len_x * self.naive_obj_x
+                # print("pose_y to obj", i, "is: ", pose_y)
+                
+                #send tf
+                self.send_obj_tf((pose_x,pose_y), "base_link", class_name)
+                      
     def cam_callback(self, data):
 
         # convert from ros to array
@@ -147,30 +137,32 @@ class ObjectPoseEstimation():
         self.img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
     def obj_pose_estimation(self, class_name):
-        if self.estimation_mode == 0:
-            print("naive estimation method")
 
-            # run 2d bbox detection
+        if self.estimation_method == ESTIMATION_TYPE["NAIVE"]:
+            # print("naive estimation method")
+                    
+            #run 2d bbox detection
             pred = self.detector.predict(self.img)[0]
             self.detector.box_label(pred, self.img)
             self.naive_estimation(pred, class_name)
-
-        elif self.pose_estimate_method == 1:
+            
+        elif self.estimation_method == ESTIMATION_TYPE["LIDAR_SEG"]:
             # print("LIDAR_SEG estimation method")
             # run 2d bbox detection
             pred = self.detector.predict(self.img)[0]
             self.detector.box_label(pred, self.img)
             self.lidar_seg_estimation(pred, class_name)
 
-        elif self.pose_estimate_method == 2:
+        elif self.estimation_method == ESTIMATION_TYPE["MASKRCNN"]:
             self.maskrcnn_estimate()
 
         else:
-            print(
-                "invalid estimation type, please choose estimation mode from: \n", [0, 1, 2])
-
-    def send_obj_tf(self, obj_pose, obj_tf, target_tf):
-
+            print(self.estimation_method)
+            print(type(self.estimation_method))
+            print("invalid estimation type, please choose estimation mode from: \n", ESTIMATION_TYPE)
+            
+            
+    def send_obj_tf(self,obj_pose, obj_tf,target_tf):
         self.br.sendTransform((obj_pose[0], obj_pose[1], 0.0),
                               (0.0, 0.0, 0.0, 1.0),
                               rospy.Time.now(),
@@ -189,13 +181,13 @@ class ObjectPoseEstimation():
         img_y = self.detector.new_img_dim[1]
         counter = 0
         # for multiple bbox:
-        obj_bbox = np.zeros((min(self.parm["max_bbox_allowed"], obj_num), 4))
-        # TODO: determin which obj is the right one to use
-        # compute pose for each class_name obj
+        obj_bbox = np.zeros((min(self.max_bbox_allowed, obj_num), 4))
+        #TODO: determin which obj is the right one to use
+        #compute pose for each class_name obj
         if obj_num > 0:
-            for j in range(min(self.parm["max_bbox_allowed"], obj_num)):
-                # compute bbox size
-                bbox = pred[j, 0:4]
+            for j in range(min(self.max_bbox_allowed, obj_num)):        
+                #compute bbox size
+                bbox = pred[j,0:4]
                 prob = pred[j, 4].item()
                 class_id = self.detector.get_class_id(class_name)
                 class_id_pred = pred[j, 5]
@@ -210,13 +202,10 @@ class ObjectPoseEstimation():
             if counter > 0:
                 num_of_obj = obj_bbox.shape[0]
                 num_of_points = self.uv.shape[1]
-                max_num_of_points_per_obj = self.parm["max_num_of_points_per_obj"]
-                point_indices_every_obj = np.zeros(
-                    (num_of_obj, max_num_of_points_per_obj)).astype(np.int32)
-                point_on_every_obj = np.zeros(
-                    (num_of_obj, max_num_of_points_per_obj, 2))
-                point_counter_every_obj = np.zeros(
-                    (num_of_obj)).astype(np.int32)
+                max_num_of_points_per_obj = rospy.get_param("~cam_lidar_seg/max_num_of_points_per_obj",4000)
+                point_indices_every_obj = np.zeros(( num_of_obj, max_num_of_points_per_obj )).astype(np.int32)
+                point_on_every_obj = np.zeros(( num_of_obj, max_num_of_points_per_obj, 2 ))
+                point_counter_every_obj = np.zeros((num_of_obj)).astype(np.int32)
 
                 # TODO: Multiple objects (with the same type) are detected?
 
@@ -308,24 +297,22 @@ class ObjectPoseEstimation():
             return json.load(f)
 
     def lidar_callback(self, msg):
-        self.p_xyz = np.ones((4, self.parm["number_of_points"]))
+        self.p_xyz = np.ones((4, rospy.get_param('~cam_lidar_seg/number_of_points',9984)))
         pt_count = 0
         t1 = time.time()
         for point in sensor_msgs.point_cloud2.read_points(msg, skip_nans=True):
             self.p_xyz[0:3, pt_count] = point[0:3]
             pt_count += 1
         t = int((time.time() - t1)*1000)
-        print('pppc2 :', t)
-        uvw = np.dot(self.cameraKRT, self.p_xyz)
-        uvw[2][uvw[2] == 0.0] = 0.01
-        uvw /= uvw[2]
+        # print('pppc2 :', t)
+        uvw = np.dot( self.cameraKRT, self.p_xyz )
+        uvw[2][uvw[2]==0.0] = 0.01
+        uvw /= uvw[2]  
         uvw = uvw.astype(np.int32)
         self.uv = uvw[0:2]
 
-
-if __name__ == "__main__":
-    estimate_c = ObjectPoseEstimation(
-        estimation_mode=1, config_json_path=currentdir + "../config/config.json")
+if __name__== "__main__":
+    estimate_c = ObjectPoseEstimation()
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
         if estimate_c.img is None:

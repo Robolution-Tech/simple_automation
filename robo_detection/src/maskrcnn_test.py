@@ -1,6 +1,12 @@
 from maskrcnn_detect import MaskRcnn
 import cv2
 import numpy as np
+import signal
+import sys
+
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
 
 
 print("Loading MaskRCNN mdoel...")

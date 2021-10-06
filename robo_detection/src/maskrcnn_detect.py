@@ -1,3 +1,4 @@
+from typing import List
 from detectron2 import model_zoo
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.visualizer import ColorMode, Visualizer
@@ -40,6 +41,8 @@ class MaskRcnn:
         assert "instances" in output
         instances = output["instances"].to(self.cpu_device)
         pred_classes = instances.pred_classes.tolist()
+        if isinstance(desired_class, list):
+            desired_class = desired_class[0] # TODO: Currently only support 1 obejct
         if desired_class not in pred_classes:
             return None, None
         else:

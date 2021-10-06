@@ -14,7 +14,10 @@ robo_param:
     
     
   frame_id:
-    processed_pose_frame: processed_pose_frame
+    processed_pose_frame_left: cam_left_obj
+    processed_pose_frame_right: cam_right_obj
+    camera_left: cam_left
+    camera_right: cam_right
 
   flag_names:
     safety_flag: safety_flag

@@ -12,7 +12,7 @@ import numpy as np
 current_path = os.path.dirname(os.path.realpath(__file__))
 
 class CameraBrodcast:
-    def __init__(self, json_config_file=current_path+"../config/config.json"):
+    def __init__(self, json_config_file=current_path+"/../config/config.json"):
         self.json_file = json_config_file
         self.parm = None
         self.cam_frame_id = []
@@ -27,7 +27,7 @@ class CameraBrodcast:
         self.set_of_cam_info = {}
         self.thread_process = []
         self.resolution_table = {"480p": (640, 480), "720p": (1280, 720), "1080p": (1920, 1080)}
-
+        print(json_config_file)
         if not os.path.exists(json_config_file):
             raise FileNotFoundError("No JSON config file is found!")
         self.load_varaibles()
@@ -130,5 +130,5 @@ class CameraBrodcast:
 
 
 if __name__ == "__main__":
-    cam_brod = CameraBrodcast(json_config_file="/home/bowen-robolution/robolution_ws/src/simple_automation/robo_sensor/config/config.json")
+    cam_brod = CameraBrodcast()
     cam_brod.main()

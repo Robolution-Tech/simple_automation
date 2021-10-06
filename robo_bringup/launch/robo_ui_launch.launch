@@ -1,0 +1,6 @@
+<launch>
+
+  <!-- ui bring up -->  
+  <node name="robo_ui_node" pkg="robo_ui" type="target_selection.py" output="screen"/>
+  
+</launch>

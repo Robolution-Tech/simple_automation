@@ -1,3 +1,4 @@
+from torch._C import IntType, ListType
 from detectron2 import model_zoo
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.visualizer import ColorMode, Visualizer
@@ -7,6 +8,7 @@ from detectron2.data.datasets import register_coco_instances
 import os
 import torch
 import numpy as np
+import cv2
 
 
 class MaskRcnn:
@@ -34,19 +36,21 @@ class MaskRcnn:
     def inference(self, img, desired_class, preserve_num_of_obj, accept_score):
         assert img is not None, "No image input"
         img_shape = img.shape[:2]
-        print(img_shape)
+        # print(img_shape)
         output = self.predictor(img)
         img_vis = img[:, :, ::-1]
         assert "instances" in output
         instances = output["instances"].to(self.cpu_device)
         pred_classes = instances.pred_classes.tolist()
-        if desired_class not in pred_classes:
+        if not set(desired_class).issubset(set(pred_classes)):
             return None, None
         else:
             scores = instances.scores.tolist()
-            desired_ind = [i for i, j in enumerate(pred_classes) if (j == desired_class and scores[i] > accept_score)]          
+            print(scores)
+            desired_ind = [i for i, j in enumerate(pred_classes) if (j == desired_class[0] and scores[i] > accept_score)]          
             desired_ind = desired_ind[:min(preserve_num_of_obj, len(desired_ind))]  
             mask_output = np.zeros(img_shape)
+            print(desired_ind)
             for ind in desired_ind:
                 current_instance = instances[ind]
                 curr_mask = current_instance.pred_masks.numpy()

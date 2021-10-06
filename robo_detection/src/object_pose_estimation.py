@@ -54,6 +54,10 @@ class ObjectPoseEstimation():
         self.max_bbox_allowed = rospy.get_param('~max_bbox_allowed',1)
         
         
+        #topic, frame
+        self.processed_pose_frame = rospy.get_param(
+            '/robo_param/frame_id/processed_pose_frame', "processed_pose_frame")
+        
         ####pose estimation mode
         self.estimation_method = rospy.get_param('~pose_estimation/estimation_method','naive')
         print(self.estimation_method)
@@ -63,8 +67,8 @@ class ObjectPoseEstimation():
         self.naive_obj_x = rospy.get_param('~pose_estimation/naive_obj_x',0.4) #width of object in m 
         
         
-        ###TODO: add maskrcnn weight dir
-        self.maskrcnn_weight = rospy.get_param('maskrcnn_weight',1)
+        #maskrcnn config
+        self.maskrcnn_weight = currentdir+ rospy.get_param('~model/maskrcnn_weight','/maskrcnn_weights/model_final_f10217.pkl')
         
         
         if self.estimation_method == ESTIMATION_TYPE["LIDAR_SEG"] or self.estimation_method == ESTIMATION_TYPE["NAIVE"]:
@@ -73,9 +77,9 @@ class ObjectPoseEstimation():
             if os.path.exists(self.maskrcnn_weight):
                 self.maskrcnn = MaskRcnn(self.maskrcnn_weight)
                 self.mask = None
-                self.maskrcnn_class_of_interest = self.parm["maskrcnn_class_of_interest"]
-                self.maskrcnn_accept_score = self.parm["maskrcnn_accept_score"]
-                self.maskrcnn_max_instance_allowed = self.parm["maskrcnn_max_instance_allowed"]
+                self.maskrcnn_class_of_interest = rospy.get_param('~model/maskrcnn_class_of_interest',[0, 1])
+                self.maskrcnn_accept_score = rospy.get_param('~model/maskrcnn_accept_score',0.7)
+                self.maskrcnn_max_instance_allowed = rospy.get_param('~model/maskrcnn_max_instance_allowed',2)
             else:
                 raise FileNotFoundError(
                     "No weight file for MaskRCNN is found!")
@@ -128,8 +132,7 @@ class ObjectPoseEstimation():
                 # print("pose_y to obj", i, "is: ", pose_y)
                 
                 #send tf
-                self.send_obj_tf((pose_x,pose_y), "base_link", rospy.get_param(
-            '/robo_param/frame_id/processed_pose_frame', "processed_pose_frame")) #TODO: use dynamic frame id here for later use
+                self.send_obj_tf((pose_x,pose_y), "base_link", self.processed_pose_frame) #TODO: use dynamic frame id here for later use
                       
     def cam_callback(self, data):
 
@@ -258,7 +261,7 @@ class ObjectPoseEstimation():
                 pose_x = np.average(people_xyz_array[:, 0])
                 pose_y = np.average(people_xyz_array[:, 1])
                 print("Sending pose: {}, {}".format(pose_x, pose_y))
-                self.send_obj_tf((pose_x, pose_y), "base_link", class_name)
+                self.send_obj_tf((pose_x, pose_y), "base_link", self.processed_pose_frame)
 
     def maskrcnn_estimate(self):
         if self.img is not None:
@@ -267,30 +270,38 @@ class ObjectPoseEstimation():
                     "Only one class is supported. Change config file to fix this")
                 # TODO: How to handle multiple objects?
             else:
-                _, self.mask = self.maskrcnn.inference(
+                vis_img, self.mask = self.maskrcnn.inference(
                     self.img, self.maskrcnn_class_of_interest, self.maskrcnn_max_instance_allowed, self.maskrcnn_accept_score)
+
                 if self.mask is not None and self.uv is not None:  # object is detected.
                     # First filter: check if point is within the frame: uv[0] : x; uv[1] : y
+                    cv2.imshow("aa", self.mask)
+                    cv2.waitKey(10)
                     img_size = self.img.shape[:2]
-                    uv_within_frame_ind = np.where((self.uv[1] >= 0) & (
-                        self.uv[1] <= img_size[0]) & (self.uv[0] >= 0) & (self.uv[0] <= img_size[1]))[0]
+                    # print(img_size)
+                    uv_copy = self.uv.copy()
+                    uv_within_frame_ind = np.where((uv_copy[1] > 0) & (
+                        uv_copy[1] < img_size[0]) & (uv_copy[0] > 0) & (uv_copy[0] < img_size[1]))[0]
                     ok_list = []
                     # Second filter: check if point in the mask is 1(true) or 0(false)
                     for point_ind in uv_within_frame_ind.tolist():
                         # print(uv[:, point_ind])
-                        u, v = self.uv[:,
-                                       point_ind][0], self.uv[:, point_ind][1]
+                        u, v = uv_copy[:,
+                                       point_ind][0], uv_copy[:, point_ind][1]
+                        # print(u, v)
                         if self.mask[v, u]:
                             ok_list.append(point_ind)
                     # [:point_counter_every_person[ii]]
-                    points_xyz_this_obj = self.p_xyz[:, np.array(ok_list)]
-                    points_xyz_this_obj_to_baselink = np.dot(
-                        self.lidar_pose, points_xyz_this_obj)
-                    final_x = np.average(points_xyz_this_obj_to_baselink[0])
-                    final_y = np.average(points_xyz_this_obj_to_baselink[1])
-                    print("Sending pose: {}, {}".format(final_x, final_y))
-                    self.send_obj_tf((final_x, final_y), "base_link",
-                                     self.maskrcnn_class_of_interest)
+                    # print(ok_list)
+                    if len(ok_list) != 0:
+                        points_xyz_this_obj = self.p_xyz[:, np.array(ok_list)]
+                        points_xyz_this_obj_to_baselink = np.dot(
+                            self.lidar_pose, points_xyz_this_obj)
+                        final_x = np.average(points_xyz_this_obj_to_baselink[0])
+                        final_y = np.average(points_xyz_this_obj_to_baselink[1])
+                        print("Sending pose: {}, {}".format(final_x, final_y))
+                        self.send_obj_tf((final_x, final_y), "base_link",
+                                        self.processed_pose_frame)
 
     @staticmethod
     def config_json(config_file_path):

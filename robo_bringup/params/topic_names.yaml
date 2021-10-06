@@ -11,7 +11,7 @@ robo_param:
 
     #decision tree
     robo_decision_system_state_topic : robo_decision_system_state
-    
+    robo_decision_user_command: user_command
     
   frame_id:
     processed_pose_frame: processed_pose_frame

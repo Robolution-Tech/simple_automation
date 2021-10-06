@@ -60,7 +60,7 @@ void PointCloudToLaserScanNodelet::onInit()
   private_nh_.param<std::string>("target_frame", target_frame_, "");
   private_nh_.param<std::string>("lidar_left_topic", lidar_left_topic_, "");
   private_nh_.param<std::string>("lidar_right_topic", lidar_right_topic_, "");
-    private_nh_.param<std::string>("lidar_pointcloud_merged_topic", lidar_pointcloud_merged_topic_, "");
+  private_nh_.param<std::string>("/robo_param/topic_names/lidar_pointcloud_merged_topic", lidar_pointcloud_merged_topic_, "");
   private_nh_.param<double>("transform_tolerance", tolerance_, 0.01);
   private_nh_.param<double>("min_height", min_height_, std::numeric_limits<double>::min());
   private_nh_.param<double>("max_height", max_height_, std::numeric_limits<double>::max());

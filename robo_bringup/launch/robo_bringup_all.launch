@@ -1,7 +1,7 @@
 <launch>
 
   <!-- load global ros param -->
-  <rosparam name="robo_param" file="$(find robo_bringup)/params/topic_names.yaml" command="load"/>
+  <rosparam file="$(find robo_bringup)/params/topic_names.yaml" command="load"/>
 
   <!-- static urdf tf bring up -->
   <param name="robot_description" textfile="$(find robo_bringup)/urdf/skidsteerV1.urdf" />
@@ -10,14 +10,18 @@
   <!-- sensors bring up -->
   <node name="robo_sensor_camera" pkg="robo_camera" type="camera_broadcast.py" output="screen"/>
 
-  <include file="(find robo_bringup)/launch/robo_lidar_left_launch.launch"/>
-  <include file="(find robo_bringup)/launch/robo_lidar_right_launch.launch"/>
+  <include file="$(find robo_bringup)/launch/robo_lidar_left_launch.launch"/>
+  <include file="$(find robo_bringup)/launch/robo_lidar_right_launch.launch"/>
 
+  <include file="$(find robo_bringup)/launch/robo_gps_imu_launch.launch"/>	
 
+  <!-- pointcloud to laserscan bring up -->
+  <include file="$(find robo_bringup)/launch/robo_lidar_left_launch.launch"/>
+  
   <!-- detection bring up -->  
-  <include file="(find robo_bringup)/launch/robo_detection_launch.launch"/>
+  <include file="$(find robo_bringup)/launch/pointcloud_to_laserscan.launch"/>
   
   <!-- control module bring up --> 
-  <node pkg="robo_control" type="can_transmit" name="robo_control_node">
-W
+  <node pkg="robo_control" type="can_transmit" name="robo_control_node"/>
+
 </launch>

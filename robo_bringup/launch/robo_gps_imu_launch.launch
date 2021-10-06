@@ -1,0 +1,9 @@
+<launch>
+
+  <!-- gps bring up --> 
+  <node name="robo_gps_node" pkg="robo_gps_imu" type="usb_ublox_gps_module_to_ros.py" output="screen"/>
+
+  <!-- imu bring up -->  
+  <include file="$(find robo_gps_imu)/launch/imu.launch"/>
+  
+</launch>

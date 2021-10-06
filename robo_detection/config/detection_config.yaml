@@ -1,9 +1,16 @@
 model:
+  #yolo
   model_path: /yolo_models/yolov5s.pt
   infe_image_size: 640 
   names: ["obj1","obj2","obj3"]
   conf_thres: 0.45
   iou_thres: 0.45
+
+  #maskrcnn
+  maskrcnn_weight: /maskrcnn_weights/model_final_f10217.pkl
+  maskrcnn_class_of_interest: [0]
+  maskrcnn_accept_score: 0.7
+  maskrcnn_max_instance_allowed: 2
 
 
 visual:
@@ -15,7 +22,7 @@ sensors:
   lidar_topic_name: /livox/lidar_3GGDJ3400100831
 
 pose_estimation:
-  estimation_method: naive
+  estimation_method: maskrcnn
   #naive config
   naive_scale: 1.2
   naive_obj_x: 0.4

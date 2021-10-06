@@ -168,7 +168,8 @@ class ObjectPoseEstimation():
 
                 # send tf
 
-                self.send_obj_tf((pose_x, pose_y), "base_link", obj_frame_id)  # TODO: use dynamic frame id here for later use
+                # TODO: use dynamic frame id here for later use
+                self.send_obj_tf((pose_x, pose_y), "base_link", obj_frame_id)
 
     def cam_callback_left(self, data):
         # convert from ros to array
@@ -352,11 +353,13 @@ class ObjectPoseEstimation():
                         points_xyz_this_obj = self.p_xyz[:, np.array(ok_list)]
                         points_xyz_this_obj_to_baselink = np.dot(
                             self.lidar_pose, points_xyz_this_obj)
-                        final_x = np.average(points_xyz_this_obj_to_baselink[0])
-                        final_y = np.average(points_xyz_this_obj_to_baselink[1])
+                        final_x = np.average(
+                            points_xyz_this_obj_to_baselink[0])
+                        final_y = np.average(
+                            points_xyz_this_obj_to_baselink[1])
                         print("Sending pose: {}, {}".format(final_x, final_y))
                         self.send_obj_tf((final_x, final_y), "base_link",
-                                        obj_id)
+                                         obj_id)
 
     @staticmethod
     def config_json(config_file_path):

@@ -11,16 +11,19 @@
   <link name="gps_link">
   </link>
 
-  <link name="cam_f_r_link">
+  <link name="cam_right_link">
   </link>
 
-  <link name="cam_f_l_link">
+  <link name="cam_left_link">
   </link>
 
   <link name="livox_right_frame">
   </link>
 
   <link name="livox_left_frame">
+  </link>
+
+  <link name="odom_front">
   </link>
 
   <joint name="imu_joint" type="fixed">
@@ -35,25 +38,25 @@
     <child link="gps_link"/>
   </joint>
 
-  <joint name="cam_f_r_joint" type="fixed">
+  <joint name="cam_right_joint" type="fixed">
     <origin rpy="-1.57 0 -1.57" xyz="1 -0.6 2.2"/>
     <parent link="base_link"/>
-    <child link="cam_f_r_link"/>
+    <child link="cam_right_link"/>
   </joint>
 
-  <joint name="cam_f_l_joint" type="fixed">
+  <joint name="cam_left_joint" type="fixed">
     <origin rpy="-1.57 0 -1.57" xyz="1 0.6 2.2"/>
     <parent link="base_link"/>
-    <child link="cam_f_l_link"/>
+    <child link="cam_left_link"/>
   </joint>
 
-  <joint name="lidar_f_r_joint" type="fixed">
+  <joint name="livox_right_joint" type="fixed">
     <origin rpy="0 0 0" xyz="1 -0.6 2.0"/>
     <parent link="base_link"/>
     <child link="livox_right_frame"/>
   </joint>
 
-  <joint name="lidar_f_l_joint" type="fixed">
+  <joint name="livox_left_joint" type="fixed">
     <origin rpy="0 0 0" xyz="1 0.6 2.0"/>
     <parent link="base_link"/>
     <child link="livox_left_frame"/>

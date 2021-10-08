@@ -1,0 +1,6 @@
+digraph G {
+"odom" -> "base_link"[label="Broadcaster: /baselink_odom_broadcaster\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 \nBuffer length: 0.000 sec\n"];
+"base_link" -> "lidar_link"[label="Broadcaster: /link1_broadcaster\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 \nBuffer length: 0.000 sec\n"];
+"odom_rear" -> "base_link_rear"[label="Broadcaster: /OmniIsaacRosBridge\nAverage rate: 119.096 Hz\nMost recent transform: 2815.737 \nBuffer length: 4.988 sec\n"];
+"odom_rear" -> "base_link_front"[label="Broadcaster: /OmniIsaacRosBridge\nAverage rate: 119.096 Hz\nMost recent transform: 2815.737 \nBuffer length: 4.988 sec\n"];
+}

@@ -15,6 +15,8 @@ robo_param:
     robo_decision_system_state_topic : robo_decision_system_state
     robo_decision_user_command: user_command
     
+
+    
   frame_id:
     processed_pose_frame_left: cam_left_obj
     processed_pose_frame_right: cam_right_obj
@@ -22,6 +24,6 @@ robo_param:
     camera_left: cam_f_l_link
     camera_right: cam_f_r_link
 
-  flag_names:
+  flag_topic:
     safety_flag: safety_flag
     loading_flag: loading_flag

@@ -33,6 +33,8 @@ class MaskRcnn:
 
     # TODO: 
     def inference(self, img, desired_class, preserve_num_of_obj, accept_score):
+        if not isinstance(desired_class, list):
+            desired_class = [desired_class]
         assert img is not None, "No image input"
         img_shape = img.shape[:2]
         # print(img_shape)
@@ -41,17 +43,20 @@ class MaskRcnn:
         assert "instances" in output
         instances = output["instances"].to(self.cpu_device)
         pred_classes = instances.pred_classes.tolist()
-        if isinstance(desired_class, list):
-            desired_class = desired_class[0] # TODO: Currently only support 1 obejct
+        # print(pred_classes)
+        # if isinstance(desired_class, list):
+        desired_class = desired_class[0] # TODO: Currently only support 1 obejct
         if desired_class not in pred_classes:
+            # print('No human detected')
+            # print(pred_classes)
             return None, None
         else:
             scores = instances.scores.tolist()
-            print(scores)
-            desired_ind = [i for i, j in enumerate(pred_classes) if (j == desired_class[0] and scores[i] > accept_score)]          
+            # print(scores)
+            desired_ind = [i for i, j in enumerate(pred_classes) if (j == desired_class and scores[i] > accept_score)]          
             desired_ind = desired_ind[:min(preserve_num_of_obj, len(desired_ind))]  
             mask_output = np.zeros(img_shape)
-            print(desired_ind)
+            # print(desired_ind)
             for ind in desired_ind:
                 current_instance = instances[ind]
                 curr_mask = current_instance.pred_masks.numpy()

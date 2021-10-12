@@ -8,7 +8,9 @@ robo_param:
 
     #sensor staff
     lidar_pointcloud_merged_topic: lidar_pointcloud_merged_topic
-
+    cam_topic_name_left: usb_cam_left/image_raw/compressed
+    cam_topic_name_right: usb_cam_right/image_raw/compressed
+    
     #decision tree
     robo_decision_system_state_topic : robo_decision_system_state
     robo_decision_user_command: user_command
@@ -16,8 +18,9 @@ robo_param:
   frame_id:
     processed_pose_frame_left: cam_left_obj
     processed_pose_frame_right: cam_right_obj
-    camera_left: cam_left
-    camera_right: cam_right
+    processed_pose_frame_final: detected_obj
+    camera_left: cam_f_l_link
+    camera_right: cam_f_r_link
 
   flag_names:
     safety_flag: safety_flag

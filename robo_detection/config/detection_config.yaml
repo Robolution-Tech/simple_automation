@@ -2,7 +2,7 @@ model:
   #yolo
   model_path: /yolo_models/yolov5s.pt
   infe_image_size: 640 
-  names: ["obj1","obj2","obj3"]
+  names: [0]
   conf_thres: 0.45
   iou_thres: 0.45
 
@@ -34,5 +34,5 @@ cam_lidar_seg:
     cam_RT: [[0, -1, 0, 0], [0, 0, -1, 0], [1, 0, 0, 0]]
     lidar_pose: [[1,0,0,0], [0,1,0,0], [0,0,1, 1]]
     max_bbox_allowed: 1
-    number_of_points: 9984
+    number_of_points: 19968
     max_num_of_points_per_obj: 4000

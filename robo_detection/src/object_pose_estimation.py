@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
-from numpy.ma import compress
+# from numpy.ma import compress
 from maskrcnn_detect import MaskRcnn
 from yolo5_detect import yolo5_detector
 from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2
-from tf.transformations import quaternion_from_euler
+# from tf.transformations import quaternion_from_euler
 from scipy.spatial.transform import Rotation as R
 
 import rospy
@@ -19,8 +19,9 @@ import json
 import tf
 import time
 from threading import Lock
+import message_filters
 
-from helpers.helper_tools import timer, NumpyArrayEncoder
+from helpers.helper_tools import timer, threaded
 # from numba import njit
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -37,7 +38,13 @@ class ObjectPoseEstimation():
         self.br = tf.TransformBroadcaster()
         # self.img = None
         # self.uv = None
+        self.p_xyz = None
         self.mutex = Lock()
+        self.mutex_tf = Lock()
+        self.left_xy = None
+        self.right_xy = None
+        self.left_updated = False
+        self.right_updated = False
 
         ##################################################
         ###############ros param load#####################
@@ -46,12 +53,13 @@ class ObjectPoseEstimation():
         # camera parameters
 
         self.cam_topic_name_left = rospy.get_param(
-            '~sensor/cam_topic_name_left', '/usb_cam/image_raw/compressed')
+            '/robo_param/topic_names/cam_topic_name_left', '/usb_cam_left/image_raw/compressed')
         self.cam_topic_name_right = rospy.get_param(
-            '~sensor/cam_topic_name_right', '/usb_cam/image_raw/compressed')
+            '/robo_param/topic_names/cam_topic_name_right', '/usb_cam_right/image_raw/compressed')
         self.lidar_topic_name = rospy.get_param(
-            '~sensor/lidar_topic_name', '/livox/lidar_3GGDJ3400100831')
-
+            '/robo_param/topic_names/lidar_pointcloud_merged_topic', '/livox/lidar_3GGDJ3400100831')
+        
+        
         cam_parms = rospy.get_param(
             '~cam_lidar_seg/cam_fx_fy_cx_cy', [632.4, 644.17, 350.36, 237.68])
         cam_fx, cam_fy, cam_cx, cam_cy = cam_parms[0], cam_parms[1], cam_parms[2], cam_parms[3]
@@ -63,6 +71,8 @@ class ObjectPoseEstimation():
         self.lidar_pose = np.asarray(rospy.get_param(
             '~cam_lidar_seg/lidar_pose', [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 1]]))
         self.max_bbox_allowed = rospy.get_param('~max_bbox_allowed', 1)
+        self.obj_id = rospy.get_param(
+                '/robo_param/frame_id/processed_pose_frame_final', "processed_pose_frame")
 
         # LJ: tf parameters:
         self.tf_listener = tf.TransformListener()
@@ -74,7 +84,7 @@ class ObjectPoseEstimation():
         # pose estimation mode
         self.estimation_method = rospy.get_param(
             '~pose_estimation/estimation_method', 'naive')
-        print(self.estimation_method)
+        # print(self.estimation_method)
         # naive config
 
         self.naive_scale = rospy.get_param(
@@ -96,12 +106,16 @@ class ObjectPoseEstimation():
                 raise FileNotFoundError(
                     "No weight file for MaskRCNN is found!")
 
-        self.cam_left_subscriber = rospy.Subscriber(
-            self.cam_topic_name_left, CompressedImage, self.cam_callback_left, queue_size=1)
-        self.cam_right_subscriber = rospy.Subscriber(
-            self.cam_topic_name_right, CompressedImage, self.cam_callback_right, queue_size=1)
+        # self.cam_left_subscriber = rospy.Subscriber(
+        #     self.cam_topic_name_left, CompressedImage, self.cam_callback_left, queue_size=1)
+        # self.cam_right_subscriber = rospy.Subscriber(
+        #     self.cam_topic_name_right, CompressedImage, self.cam_callback_right, queue_size=1)
+        self.cam_left_subscriber = message_filters.Subscriber(self.cam_topic_name_left, CompressedImage)
+        self.cam_right_subscriber = message_filters.Subscriber(self.cam_topic_name_right, CompressedImage)
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.cam_left_subscriber, self.cam_right_subscriber], 5, 0.05)
+        self.ts.registerCallback(self.cam_callback)
         self.lidar_subscriber = rospy.Subscriber(
-            self.lidar_topic_name, PointCloud2, self.lidar_callback)
+            self.lidar_topic_name, PointCloud2, self.lidar_callback, queue_size=1)
 
         # Init static tf transformation:
         while not rospy.is_shutdown():
@@ -166,27 +180,48 @@ class ObjectPoseEstimation():
                 # send tf
                 self.send_obj_tf((pose_x, pose_y), "base_link", obj_frame_id)
 
-    def cam_callback_left(self, data):
-        # convert from ros to array
-        np_arr = np.frombuffer(data.data, np.uint8)
-        img_left = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        uvw = np.dot(self.cam_left_krt, self.p_xyz)
-        uvw[2][uvw[2] == 0.0] = 0.01
-        uvw /= uvw[2]
-        uvw = uvw.astype(np.int32)
-        uv = uvw[0:2]
-        self.obj_pose_estimation(self.class_name, img_left, uv, "left")
+    # def cam_callback_left(self, data):
+    #     if self.p_xyz is not None:
+    #         # convert from ros to array
+    #         np_arr = np.frombuffer(data.data, np.uint8)
+    #         img_left = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    #         uvw = np.dot(self.cam_left_krt, self.p_xyz)
+    #         uvw[2][uvw[2] == 0.0] = 0.01
+    #         uvw /= uvw[2]
+    #         uvw = uvw.astype(np.int32)
+    #         uv = uvw[0:2]
+    #         self.obj_pose_estimation(self.class_name, img_left, uv, "left")
 
-    def cam_callback_right(self, data):
-        # convert from ros to array
-        np_arr = np.frombuffer(data.data, np.uint8)
-        img_right = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    # def cam_callback_right(self, data):
+    #     if self.p_xyz is not None:
+    #         # convert from ros to array
+    #         np_arr = np.frombuffer(data.data, np.uint8)
+    #         img_right = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    #         uvw = np.dot(self.cam_right_krt, self.p_xyz)
+    #         uvw[2][uvw[2] == 0.0] = 0.01
+    #         uvw /= uvw[2]
+    #         uvw = uvw.astype(np.int32)
+    #         uv = uvw[0:2]
+    #         self.obj_pose_estimation(self.class_name, img_right, uv, "right")
+    def cam_callback(self, left_img_msg, right_img_msg):
+        if self.p_xyz is not None:
+            process_img_th = [self.process_img(left_img_msg, "left"), self.process_img(right_img_msg, "right")]
+            for th in process_img_th:
+                th.join()
+            process_img_th.clear()
+            
+
+    @threaded        
+    def process_img(self, img_raw_data, left_or_right):
+        np_arr = np.frombuffer(img_raw_data.data, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         uvw = np.dot(self.cam_right_krt, self.p_xyz)
         uvw[2][uvw[2] == 0.0] = 0.01
         uvw /= uvw[2]
         uvw = uvw.astype(np.int32)
         uv = uvw[0:2]
-        self.obj_pose_estimation(self.class_name, img_right, uv, "right")
+        self.obj_pose_estimation(self.class_name, img, uv, left_or_right)
+        
 
     def obj_pose_estimation(self, class_name, img, uv, left_or_right):
         if left_or_right == "left":
@@ -209,8 +244,8 @@ class ObjectPoseEstimation():
             self.detector.box_label(pred, img)
             self.lidar_seg_estimation(pred, class_name, uv, obj_id)
 
-        elif self.estimation_method == ESTIMATION_TYPE["MASKRCNN"]:
-            self.maskrcnn_estimate(class_name, img, uv, obj_id)
+        elif self.estimation_method == ESTIMATION_TYPE["MASKRCNN"]:            
+            self.maskrcnn_estimate(class_name, img, uv, left_or_right)
 
         else:
             print(self.estimation_method)
@@ -319,7 +354,7 @@ class ObjectPoseEstimation():
                 print("Sending pose: {}, {}".format(pose_x, pose_y))
                 self.send_obj_tf((pose_x, pose_y), "base_link", obj_id)
 
-    def maskrcnn_estimate(self, class_name, img, uv, obj_id):
+    def maskrcnn_estimate(self, class_name, img, uv, left_or_right):
         if not isinstance(class_name, list):
             class_name = [class_name]
         if img is not None:
@@ -328,13 +363,16 @@ class ObjectPoseEstimation():
                     "Only one class is supported. Change config file to fix this")
                 # TODO: How to handle multiple objects?
             else:
+                # print("[Running MaskRCNN...]")
                 _, mask = self.maskrcnn.inference(
                     img, class_name, self.maskrcnn_max_instance_allowed, self.maskrcnn_accept_score)
                 if mask is not None and uv is not None:  # object is detected.
                     # First filter: check if point is within the frame: uv[0] : x; uv[1] : y
+                    # cv2.imshow("aa",mask)
+                    # cv2.waitKey(10)
                     img_size = img.shape[:2]
                     uv_within_frame_ind = np.where((uv[1] >= 0) & (
-                        uv[1] <= img_size[0]) & (uv[0] >= 0) & (uv[0] <= img_size[1]))[0]
+                        uv[1] < img_size[0]) & (uv[0] >= 0) & (uv[0] < img_size[1]))[0]
                     ok_list = []
                     # Second filter: check if point in the mask is 1(true) or 0(false)
                     for point_ind in uv_within_frame_ind.tolist():
@@ -346,15 +384,27 @@ class ObjectPoseEstimation():
                     if len(ok_list) != 0:
                         # [:point_counter_every_person[ii]]
                         points_xyz_this_obj = self.p_xyz[:, np.array(ok_list)]
-                        points_xyz_this_obj_to_baselink = np.dot(
-                            self.lidar_pose, points_xyz_this_obj)
+                        points_xyz_this_obj_to_baselink = points_xyz_this_obj
+                        # points_xyz_this_obj_to_baselink = np.dot(
+                        #     self.lidar_pose, points_xyz_this_obj)
                         final_x = np.average(
                             points_xyz_this_obj_to_baselink[0])
                         final_y = np.average(
                             points_xyz_this_obj_to_baselink[1])
-                        print("Sending pose: {}, {}".format(final_x, final_y))
-                        self.send_obj_tf((final_x, final_y), "base_link",
-                                         obj_id)
+                        with self.mutex_tf:
+                            # print(left_or_right)
+                            if left_or_right == "left":
+                                # print("found left")
+                                self.left_xy = (final_x, final_y)
+                                self.left_updated = True
+                            else:
+                                # print("found right")
+                                self.right_xy = (final_x, final_y)
+                                self.right_updated = True
+                        self.merge_two_tf()
+                        # print("Sending pose: {}, {}".format(final_x, final_y))
+                        # self.send_obj_tf((final_x, final_y), "base_link",
+                        #                  obj_id)
 
     @staticmethod
     def config_json(config_file_path):
@@ -369,7 +419,9 @@ class ObjectPoseEstimation():
         RT = np.append(rot_mat, translation, axis=1)
         return np.dot(K, RT)
 
+    # @timer
     def lidar_callback(self, msg):
+        # print("Lidar callback")
         self.p_xyz = np.ones(
             (4, rospy.get_param('~cam_lidar_seg/number_of_points', 9984 * 2)))
         pt_count = 0
@@ -385,10 +437,24 @@ class ObjectPoseEstimation():
             # uvw /= uvw[2]
             # uvw = uvw.astype(np.int32)
             # self.uv = uvw[0:2]
+    
+    def merge_two_tf(self):
+        # print("called")
+        if self.left_updated and self.right_updated:
+            if (self.left_xy is not None) and (self.right_xy is not None):
+                final_x = (self.left_xy[0] + self.right_xy[0]) / 2
+                final_y = (self.left_xy[1] + self.right_xy[1]) / 2
+                print("Sending pose: {}, {}".format(final_x, final_y))
+                self.send_obj_tf((final_x, final_y), "base_link", self.obj_id)
+                self.left_updated, self.right_updated = False, False
+                self.left_xy, self.right_xy = None, None
 
 
 if __name__ == "__main__":
     estimate_c = ObjectPoseEstimation()
+    # while not rospy.is_shutdown:
+    #     print("aaa")
+    #     estimate_c.merge_two_tf()
     rospy.spin()
     # rate = rospy.Rate(10.0)
     # while not rospy.is_shutdown():

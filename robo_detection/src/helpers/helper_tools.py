@@ -2,6 +2,7 @@ import functools
 import time
 from json import JSONEncoder
 import numpy as np
+import threading
 
 def timer(func):
 	@functools.wraps(func)
@@ -19,3 +20,10 @@ class NumpyArrayEncoder(JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return JSONEncoder.default(self, obj)
+
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=fn, args=args, kwargs=kwargs)
+        thread.start()
+        return thread
+    return wrapper

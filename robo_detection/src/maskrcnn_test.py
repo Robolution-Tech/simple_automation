@@ -15,8 +15,11 @@ test_img = cv2.imread(currentdir+"/test/2.jpg")
 # test_img = cv2.imread("/home/bowen-robolution/Downloads/11.png")
 masktest = MaskRcnn(currentdir+"/maskrcnn_weights/model_final_f10217.pkl")
 # img, mask = masktest.inference(test_img)
-img, mask_rtn = masktest.inference(test_img, 0, 3, 0.1)
+img, mask_rtn = masktest.inference(test_img, [0], 3, 0.1)
 if mask_rtn is not None:
+    cv2.imshow("A", img)
+    cv2.imshow("B", mask_rtn)
+    cv2.waitKey(0)
     img_shape = img.shape[:2]
     uv = np.random.randint(2000, size=(2, 9984)) - 1000
     p_xyz = np.random.random((3, 9984)) * 1000

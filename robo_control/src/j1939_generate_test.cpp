@@ -378,6 +378,7 @@ void CAN_Dev::config_parse(const std::string configFile){
         keyboard_mode_ = configJson_["keyboard_mode"];
         twist_max_speed_ = configJson_["twist_max_speed"];
         joystick_pub_flag_ = configJson_["joystick_pub_flag"];
+        joystick_record_flag_ = configJson_["joystick_record_flag"];
     }
     printf("Done update parameterss \n");
 }

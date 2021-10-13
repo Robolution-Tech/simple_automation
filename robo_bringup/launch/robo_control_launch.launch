@@ -1,5 +1,4 @@
 <launch>
-
-        <node pkg="robo_control" type="can_transmit" name="robo_control_node">
+        <node pkg="robo_control" type="can_transmit" name="robo_control_node" output="screen" />
 
 </launch>

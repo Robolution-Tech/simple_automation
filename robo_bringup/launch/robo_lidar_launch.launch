@@ -8,9 +8,8 @@
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   
   
-  
-  <include file="$(find robo_bringup)/launch/robo_lidar_left_launch.launch"/>
-  <include file="$(find robo_bringup)/launch/robo_lidar_right_launch.launch"/>
+  <!--include file="$(find robo_bringup)/launch/robo_lidar_left_launch.launch"/-->
+  <!--include file="$(find robo_bringup)/launch/robo_lidar_right_launch.launch"/-->
 
   <!-- detection bring up -->  
   <include file="$(find robo_bringup)/launch/pointcloud_to_laserscan.launch"/>

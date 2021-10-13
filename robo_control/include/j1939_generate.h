@@ -73,13 +73,14 @@ class CAN_Dev{
         std::string keyboard_mode_;
         double twist_max_speed_;
         bool joystick_pub_flag_;
+        bool joystick_record_flag_;
         VCI_INIT_CONFIG config_;
     public:
         json configJson_;
         CAN_Dev();
         CAN_Dev(const std::string);
         CAN_Dev(unsigned gDevType, unsigned gDevIdx, unsigned gBaud);
-
+        ~CAN_Dev(){};
         //~CAN_Dev();
         //{
         //
@@ -116,8 +117,12 @@ class CAN_Dev{
         double get_twist_max_speed(){
             return twist_max_speed_;
         }
-        double get_joystick_pub_flag(){
+        bool get_joystick_pub_flag(){
             return joystick_pub_flag_;
+        }
+
+        bool get_joystick_record_flag(){
+            return joystick_record_flag_;
         }
         
 };

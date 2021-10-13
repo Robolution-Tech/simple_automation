@@ -21,9 +21,14 @@ robo_param:
     processed_pose_frame_left: cam_left_obj
     processed_pose_frame_right: cam_right_obj
     processed_pose_frame_final: detected_obj
-    camera_left: cam_f_l_link
-    camera_right: cam_f_r_link
+    camera_left: cam_left_link
+    camera_right: cam_right_link
 
   flag_topic:
     safety_flag: safety_flag
-    loading_flag: loading_flag
+    hardcode_loading_flag: hardcode_loading_flag
+    loading_complete_flag: loading_complete_flag
+
+
+  file_dir:
+    joystick_record_file_dir: /home/robo-dell/Downloads/js_record.txt

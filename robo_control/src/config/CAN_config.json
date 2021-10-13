@@ -2,8 +2,9 @@
     "DevType": 2,
     "ChMask": 0,
     "TxType": 1,
-    "ControlInputType": "joystick",
+    "ControlInputType": "twist",
     "keyboard_mode": "continues",
     "twist_max_speed": 5,
-    "joystick_pub_flag": true
+    "joystick_pub_flag": true,
+    "joystick_record_flag": true
 }

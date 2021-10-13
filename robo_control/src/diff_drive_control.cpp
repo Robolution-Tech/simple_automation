@@ -53,6 +53,9 @@ namespace CanTransmission{
         joystick_value_.left_stick.y = y;
     }
 
+
+
+
     STICK_VALUE DiffDriveControl::get_left_stick(){
         return joystick_value_.left_stick;
     }

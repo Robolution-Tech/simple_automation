@@ -23,9 +23,6 @@
   <link name="livox_left_frame">
   </link>
 
-  <link name="odom_front">
-  </link>
-
   <joint name="imu_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 1.0"/>
     <parent link="base_link"/>
@@ -51,13 +48,13 @@
   </joint>
 
   <joint name="livox_right_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="1 -0.6 2.0"/>
+    <origin rpy="-3.1416 0 0" xyz="1 -0.6 2.0"/>
     <parent link="base_link"/>
     <child link="livox_right_frame"/>
   </joint>
 
   <joint name="livox_left_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="1 0.6 2.0"/>
+    <origin rpy="-3.1416 0 0" xyz="1 0.6 2.0"/>
     <parent link="base_link"/>
     <child link="livox_left_frame"/>
   </joint>

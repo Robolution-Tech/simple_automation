@@ -20,4 +20,5 @@ TODO:
 - [ ] Field test!!
 
 
-[![IMAGE ALT TEXT HERE](https://www.youtube.com/watch?v=t_TQEVIVbMo/0.jpg)]https://www.youtube.com/watch?v=t_TQEVIVbMo)
+
+[![IMAGE ALT TEXT HERE](https://www.youtube.com/watch?v=t_TQEVIVbMo/0.jpg)](https://youtu.be/t_TQEVIVbMo)

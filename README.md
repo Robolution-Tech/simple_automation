@@ -21,4 +21,5 @@ TODO:
 
 
 
-[![IMAGE ALT TEXT HERE](https://www.youtube.com/watch?v=t_TQEVIVbMo/0.jpg)](https://youtu.be/t_TQEVIVbMo)
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/t_TQEVIVbMo/0.jpg)](https://youtu.be/t_TQEVIVbMo)

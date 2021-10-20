@@ -11,10 +11,13 @@ Strcture: \
 
 
 TODO:
-- [ ] Set up the simple testing environment (bringup)
-- [ ] Base node
-- [ ] Localization node
-- [ ] planning node
-- [ ] decision node
-- [ ] detection ndoe
+- [X] Set up the simple testing environment (bringup)
+- [X] Base node
+- [X] Localization node
+- [X] planning node
+- [X] decision node
+- [X] detection ndoe
 - [ ] Field test!!
+
+
+[![IMAGE ALT TEXT HERE](https://www.youtube.com/watch?v=t_TQEVIVbMo/0.jpg)]https://www.youtube.com/watch?v=t_TQEVIVbMo)
